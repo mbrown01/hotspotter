@@ -1,0 +1,41 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+
+# --- Data & outputs (large / regenerable; keep out of git) ---
+data/raw/
+data/external/
+data/interim/
+outputs/
+*.pdb
+*.cif
+*.pdb.gz
+*.cif.gz
+!tests/fixtures/*.pdb          # keep tiny test fixtures if we add them
+
+# --- SKEMPI / large tables (Phase 2) ---
+data/skempi*/
+*.zip
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Secrets (there shouldn't be any, but just in case) ---
+.env
+*.key

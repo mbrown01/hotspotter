@@ -1,0 +1,26 @@
+# ---------------------------------------------------------------------------
+# Phase 1 dependencies (feature-extraction pipeline). All free / open-source,
+# all run locally on CPU. No API keys, no accounts, no bills.
+# Install:  py -m venv .venv && .\.venv\Scripts\pip install -r requirements.txt
+# ---------------------------------------------------------------------------
+biopython>=1.83      # parse PDB/mmCIF structures, geometry, neighbor search
+freesasa>=2.2        # solvent-accessible surface area (burial, dSASA, RSA)
+numpy>=1.26
+scipy>=1.11          # KD-trees, spatial math
+pandas>=2.1          # the per-residue feature table
+matplotlib>=3.8      # simple plots / diagnostics
+py3Dmol>=2.0         # in-notebook 3D interface visualization
+requests>=2.31       # download structures from RCSB / AlphaFold DB
+truststore>=0.9      # use the OS cert store (fixes SSL on corporate/proxied networks)
+
+# --- Dev / testing ---
+pytest>=8.0
+
+# ---------------------------------------------------------------------------
+# Phase 2 (ML scorer) — installed later, kept here for reference. Uncomment
+# when we start Phase 2 so Phase 1 installs stay small and fast.
+# ---------------------------------------------------------------------------
+# scikit-learn>=1.4
+# xgboost>=2.0
+# torch>=2.2           # (CPU build is fine)
+# torch-geometric>=2.5 # GNN over the interface graph
