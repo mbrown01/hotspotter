@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import math
 
-from hotspot.io import ResidueId
-from hotspot.ml.dataset import (
+from hotspotter.io import ResidueId
+from hotspotter.ml.dataset import (
     ddg_from_kd,
     parse_mutation,
     parse_pdb_field,

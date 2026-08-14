@@ -34,8 +34,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hotspot.interface import Interface
-from hotspot.io import ResidueId
+from hotspotter.interface import Interface
+from hotspotter.io import ResidueId
 
 
 def compute_conservation_features(

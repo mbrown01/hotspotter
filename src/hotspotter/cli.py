@@ -1,4 +1,4 @@
-"""Command-line entry point:  python -m hotspot.cli --pdb 1BRS --chains A,D
+"""Command-line entry point:  python -m hotspotter.cli --pdb 1BRS --chains A,D
 
 Runs the full Phase-1 pipeline and writes the feature table, contact list, and report to
 ``outputs/`` (or a directory you choose). Designed to also be scriptable in batch for the
@@ -12,13 +12,13 @@ import sys
 
 import pandas as pd
 
-from hotspot.pipeline import analyze_complex
-from hotspot.report import save_outputs, text_report
+from hotspotter.pipeline import analyze_complex
+from hotspotter.report import save_outputs, text_report
 
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="hotspot",
+        prog="hotspotter",
         description="Rank protein-protein interface residues by predicted hot-spot importance.",
     )
     src = p.add_mutually_exclusive_group(required=True)

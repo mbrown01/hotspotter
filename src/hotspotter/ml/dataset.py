@@ -38,8 +38,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from hotspot.io import ResidueId
-from hotspot.pipeline import ComplexAnalysis, analyze_complex
+from hotspotter.io import ResidueId
+from hotspotter.pipeline import ComplexAnalysis, analyze_complex
 
 # Gas constant in kcal/(mol*K); ΔG = R*T*ln(Kd).
 R_KCAL = 1.987204259e-3

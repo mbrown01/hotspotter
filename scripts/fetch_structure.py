@@ -15,7 +15,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from hotspot.io import fetch_alphafold, fetch_pdb  # noqa: E402
+from hotspotter.io import fetch_alphafold, fetch_pdb  # noqa: E402
 
 
 def main() -> int:

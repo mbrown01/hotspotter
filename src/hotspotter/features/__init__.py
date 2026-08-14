@@ -1,5 +1,5 @@
 """Per-residue feature groups. Each module exposes a function that annotates interface
-residues with features, keyed by :class:`hotspot.io.ResidueId`.
+residues with features, keyed by :class:`hotspotter.io.ResidueId`.
 
 Feature groups:
     chemistry     salt bridges, H-bonds, hydrophobic, aromatic, disulfide (the Arg95 signal)

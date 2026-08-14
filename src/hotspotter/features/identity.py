@@ -19,7 +19,7 @@ BIOLOGY NOTE:
 
 from __future__ import annotations
 
-from hotspot.constants import (
+from hotspotter.constants import (
     AROMATIC_RESIDUES,
     FLEXIBILITY,
     FORMAL_CHARGE,
@@ -27,8 +27,8 @@ from hotspot.constants import (
     RESIDUE_VOLUME,
     THREE_TO_ONE,
 )
-from hotspot.interface import Interface
-from hotspot.io import ResidueId
+from hotspotter.interface import Interface
+from hotspotter.io import ResidueId
 
 _POLAR = frozenset({"SER", "THR", "ASN", "GLN", "TYR", "CYS", "HIS", "TRP"})
 _CHARGED = frozenset(FORMAL_CHARGE) | {"ARG", "LYS", "ASP", "GLU"}

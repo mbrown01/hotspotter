@@ -2,7 +2,7 @@
 
 Replaces Phase 1's hand-set ranking heuristic with a model trained on measured data
 (SKEMPI 2.0 ΔΔG labels). Reuses the Phase-1 pipeline verbatim: ``dataset.py`` runs
-``hotspot.pipeline.analyze_complex`` across SKEMPI's complexes and joins the labels; the
+``hotspotter.pipeline.analyze_complex`` across SKEMPI's complexes and joins the labels; the
 result is the same per-residue table Phase 1 already emits, now with a ΔΔG target column.
 
 Modules:
