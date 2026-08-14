@@ -23,7 +23,8 @@ dependencies = [
 [project.optional-dependencies]
 sasa = ["freesasa>=2.2"]          # optional native backend; Biopython fallback exists
 dev = ["pytest>=8.0"]
-ml = ["scikit-learn>=1.4", "xgboost>=2.0"]  # Phase 2
+ml = ["scikit-learn>=1.4", "xgboost>=2.0"]   # Phase 2 baseline scorer
+gnn = ["torch>=2.2", "torch-geometric>=2.5"] # Phase 2 GNN (CPU build is fine)
 
 [project.scripts]
 hotspot = "hotspot.cli:main"
