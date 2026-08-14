@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hotspot"
+version = "0.1.0"
+description = "Interaction-aware hot-spot prediction for protein-protein interfaces"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Michelle Brown" }]
+license = { text = "MIT" }
+dependencies = [
+    "biopython>=1.83",
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "pandas>=2.1",
+    "matplotlib>=3.8",
+    "py3Dmol>=2.0",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+sasa = ["freesasa>=2.2"]          # optional native backend; Biopython fallback exists
+dev = ["pytest>=8.0"]
+ml = ["scikit-learn>=1.4", "xgboost>=2.0"]  # Phase 2
+
+[project.scripts]
+hotspot = "hotspot.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
