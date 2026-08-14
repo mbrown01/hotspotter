@@ -19,21 +19,21 @@ from pathlib import Path
 
 import pandas as pd
 
-from hotspot.features.chemistry import Contact, detect_contacts, per_residue_chemistry
-from hotspot.features.confidence import compute_confidence_features
-from hotspot.features.conservation import compute_conservation_features
-from hotspot.features.identity import compute_identity_features
-from hotspot.features.sasa import SASA_BACKEND, compute_sasa_features
-from hotspot.features.topology import compute_topology_features
-from hotspot.interface import Interface, detect_interface, guess_two_sides
-from hotspot.io import (
+from hotspotter.features.chemistry import Contact, detect_contacts, per_residue_chemistry
+from hotspotter.features.confidence import compute_confidence_features
+from hotspotter.features.conservation import compute_conservation_features
+from hotspotter.features.identity import compute_identity_features
+from hotspotter.features.sasa import SASA_BACKEND, compute_sasa_features
+from hotspotter.features.topology import compute_topology_features
+from hotspotter.interface import Interface, detect_interface, guess_two_sides
+from hotspotter.io import (
     ResidueId,
     fetch_pdb,
     get_chain_ids,
     get_model,
     load_structure,
 )
-from hotspot.ranking import Weights, hotspot_score
+from hotspotter.ranking import Weights, hotspot_score
 
 
 @dataclass
@@ -71,7 +71,7 @@ def _parse_chains(chains, chain_ids):
     if chains is None:
         a, b = guess_two_sides(chain_ids)
         if len(chain_ids) > 2:
-            print(f"[hotspot] >2 chains {chain_ids}; defaulting to {a} vs {b}. "
+            print(f"[hotspotter] >2 chains {chain_ids}; defaulting to {a} vs {b}. "
                   f"Pass chains=('X','Y') to be explicit.")
         return a, b
     if isinstance(chains, str):

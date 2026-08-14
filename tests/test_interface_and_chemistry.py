@@ -6,9 +6,9 @@ distances (see conftest.build_structure / salt_bridge_pair). No network required
 
 from __future__ import annotations
 
-from hotspot.features.chemistry import detect_contacts, per_residue_chemistry
-from hotspot.interface import detect_interface
-from hotspot.io import ResidueId
+from hotspotter.features.chemistry import detect_contacts, per_residue_chemistry
+from hotspotter.interface import detect_interface
+from hotspotter.io import ResidueId
 
 
 def test_interface_detects_both_residues(salt_bridge_pair):

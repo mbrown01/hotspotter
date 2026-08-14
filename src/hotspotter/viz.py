@@ -6,8 +6,8 @@ answer is something you can see and rotate, not just read off a table.
 
 Usage (in a notebook)::
 
-    from hotspot.pipeline import analyze_complex
-    from hotspot.viz import show_interface
+    from hotspotter.pipeline import analyze_complex
+    from hotspotter.viz import show_interface
     a = analyze_complex("1BRS", chains="A,D")
     show_interface(a)          # returns a py3Dmol view; displays inline
 """
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from hotspot.pipeline import ComplexAnalysis
+from hotspotter.pipeline import ComplexAnalysis
 
 # A small colorblind-friendly ramp for the top hot spots (best = warmest).
 _HOTSPOT_COLORS = ["#d73027", "#fc8d59", "#fee090", "#91bfdb", "#4575b4"]

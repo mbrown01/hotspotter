@@ -24,8 +24,8 @@ from pathlib import Path
 
 import numpy as np
 
-from hotspot.interface import Interface
-from hotspot.io import ResidueId
+from hotspotter.interface import Interface
+from hotspotter.io import ResidueId
 
 
 def _mean_bfactor(residue) -> float:

@@ -27,8 +27,8 @@ from typing import Iterable
 from Bio.PDB import NeighborSearch
 from Bio.PDB.Residue import Residue
 
-from hotspot.constants import Cutoffs
-from hotspot.io import ResidueId, is_amino_acid, residue_id
+from hotspotter.constants import Cutoffs
+from hotspotter.io import ResidueId, is_amino_acid, residue_id
 
 
 @dataclass
@@ -82,7 +82,7 @@ def detect_interface(
 
     Parameters
     ----------
-    model : a Biopython Model (use ``hotspot.io.get_model(structure)``).
+    model : a Biopython Model (use ``hotspotter.io.get_model(structure)``).
     side_a_chains, side_b_chains : chain ids on each side of the interface, e.g.
         ("A",) and ("D",) for barnase-barstar, or multi-chain groups for larger assemblies.
     cutoff : heavy-atom distance (A) defining a contact.

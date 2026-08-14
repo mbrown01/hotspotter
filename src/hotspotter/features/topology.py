@@ -22,10 +22,10 @@ from __future__ import annotations
 
 from Bio.PDB import NeighborSearch
 
-from hotspot.constants import Cutoffs
-from hotspot.interface import Interface
-from hotspot.io import ResidueId, is_amino_acid, residue_id
-from hotspot.features.geometry import distance
+from hotspotter.constants import Cutoffs
+from hotspotter.interface import Interface
+from hotspotter.io import ResidueId, is_amino_acid, residue_id
+from hotspotter.features.geometry import distance
 
 
 def _representative_atom(residue):

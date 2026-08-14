@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hotspot.features.geometry import (
+from hotspotter.features.geometry import (
     angle,
     distance,
     ring_centroid_and_normal,

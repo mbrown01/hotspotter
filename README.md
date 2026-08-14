@@ -1,4 +1,6 @@
-# Hot-Spot Predictor for Protein–Protein Interfaces
+# HotSpotter
+
+### Interaction-aware hot-spot prediction for protein–protein interfaces
 
 **Given the 3D structure of a protein complex, find the binding interface, compute a
 rich per-residue feature set, and rank which residues are most likely to be
@@ -113,7 +115,7 @@ computes features, prints the ranked table):
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_demo.py
 # or, via the CLI, on any PDB id or local file:
-.\.venv\Scripts\python.exe -m hotspot.cli --pdb 1BRS --chains A,D
+.\.venv\Scripts\python.exe -m hotspotter.cli --pdb 1BRS --chains A,D
 ```
 
 ---
@@ -121,7 +123,7 @@ computes features, prints the ranked table):
 ## Repo layout
 
 ```
-src/hotspot/            the pipeline (importable package)
+src/hotspotter/            the pipeline (importable package)
   io.py                 load/clean structures (PDB + mmCIF)
   interface.py          detect interface residues (contact- and SASA-based)
   features/             one module per feature group

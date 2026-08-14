@@ -34,7 +34,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from itertools import product
 
-from hotspot.constants import (
+from hotspotter.constants import (
     ANIONIC_ATOMS,
     AROMATIC_RING_ATOMS,
     BACKBONE_ACCEPTOR_ATOMS,
@@ -45,14 +45,14 @@ from hotspot.constants import (
     HBOND_DONORS,
     HYDROPHOBIC_CARBONS,
 )
-from hotspot.features.geometry import (
+from hotspotter.features.geometry import (
     angle,
     distance,
     ring_centroid_and_normal,
     ring_dihedral,
 )
-from hotspot.interface import Interface
-from hotspot.io import ResidueId
+from hotspotter.interface import Interface
+from hotspotter.io import ResidueId
 
 CONTACT_TYPES = ("salt_bridge", "hydrogen_bond", "hydrophobic", "aromatic", "disulfide")
 

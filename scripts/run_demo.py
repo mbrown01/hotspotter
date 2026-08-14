@@ -18,11 +18,11 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Make `hotspot` importable whether or not the package is pip-installed.
+# Make `hotspotter` importable whether or not the package is pip-installed.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from hotspot.pipeline import analyze_complex   # noqa: E402
-from hotspot.report import save_outputs, text_report  # noqa: E402
+from hotspotter.pipeline import analyze_complex   # noqa: E402
+from hotspotter.report import save_outputs, text_report  # noqa: E402
 
 
 def main() -> int:

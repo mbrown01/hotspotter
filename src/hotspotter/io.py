@@ -18,7 +18,7 @@ from Bio.PDB import MMCIFParser, PDBParser, Select
 from Bio.PDB.Structure import Structure
 from Bio.PDB.Residue import Residue
 
-from hotspot.constants import STANDARD_RESIDUES, THREE_TO_ONE
+from hotspotter.constants import STANDARD_RESIDUES, THREE_TO_ONE
 
 # Where downloaded structures land (gitignored). Resolved relative to the repo root.
 DATA_RAW = Path(__file__).resolve().parents[2] / "data" / "raw"

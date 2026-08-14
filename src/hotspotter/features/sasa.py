@@ -34,8 +34,8 @@ import copy
 
 from Bio.PDB.SASA import ShrakeRupley
 
-from hotspot.constants import MAX_ASA_TIEN, Cutoffs
-from hotspot.io import ResidueId, is_amino_acid, residue_id
+from hotspotter.constants import MAX_ASA_TIEN, Cutoffs
+from hotspotter.io import ResidueId, is_amino_acid, residue_id
 
 try:  # optional native backend
     import freesasa  # noqa: F401

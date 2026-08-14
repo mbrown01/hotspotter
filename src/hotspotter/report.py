@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pandas as pd
 
-from hotspot.pipeline import ComplexAnalysis
-from hotspot.ranking import compare_rankings
+from hotspotter.pipeline import ComplexAnalysis
+from hotspotter.ranking import compare_rankings
 
 OUTPUTS = Path(__file__).resolve().parents[2] / "outputs"
 
