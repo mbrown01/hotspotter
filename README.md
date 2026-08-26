@@ -6,69 +6,6 @@
 rich per-residue feature set, and rank which residues are most likely to be
 *load-bearing* — i.e. which ones, if mutated, would actually break the interaction.**
 
-This is a rigorous, domain-aware **portfolio project** in structural machine learning.
-It is *not* claiming novelty or state-of-the-art: mature tools already predict
-mutation effects on binding (FoldX, mCSM-PPI2, BeAtMuSiC, SpotOn, …). The honest
-contribution here is **rigor, interpretability, and a real motivating case** — plus a
-usable, centralized workflow for a task scientists currently stitch together by hand.
-
----
-
-## The story that motivates this
-
-A structural biologist (Sandra) studied how two proteins, **ARL15** and **CNNM2**,
-bind. She predicted the complex (AlphaFold2/ColabFold + docking) and analyzed the
-interface to decide which residue to mutate and test. A standard interface analysis
-(PISA) flagged a residue that looked **heavily buried** — **Tyrosine 96 (Y96)** — and
-it agreed across both of her models, so she mutated it.
-
-**It didn't matter.** Binding was unchanged.
-
-The residue that *actually* mattered was **Arginine 95 (Arg95)**, which forms a **salt
-bridge** — a strong charge–charge interaction — across the interface. That only came out
-in a later paper.
-
-> **The lesson driving this project:** "buried" tells you *where* the interface is, not
-> *which contacts are load-bearing.* The obvious heuristic (most-buried residue) sent her
-> to the wrong residue. Catching the real one required reasoning about **interaction
-> chemistry**. We want a tool that does better than the naive heuristic — and we can
-> *prove* it does, on a case where the answer is known.
-
----
-
-## What it does (two phases, one engine)
-
-**Phase 1 — the feature-extraction pipeline (this repo, building now).**
-Input a complex structure → detect the interface → compute a full per-residue feature
-set → rank candidate residues with a transparent heuristic → output a clean table + a
-3D interface visualization + a report. The output is designed from day one to also emit
-one **model-ready feature row per residue**, so Phase 2 trains on exactly what Phase 1
-produces.
-
-**Phase 2 — the ML hot-spot scorer (later).**
-Run Phase 1 across the [SKEMPI 2.0](https://life.bsc.es/pid/skempi2) database (~7,000
-mutations in protein complexes with *measured* ΔΔG binding changes), join the labels, and
-train a model (XGBoost baseline → GNN, since an interface is naturally a graph) to predict
-whether a mutation disrupts binding. Evaluate honestly against the naive baseline and an
-existing tool.
-
-**Phase 3 — deorphanization (far-future stretch, out of scope).** Screen an orphan
-protein against candidate partners. Mentioned only as future work; it's the one part that
-needs real compute.
-
----
-
-## Development strategy: debug on a known answer, then go live
-
-We build and validate on **barnase–barstar (PDB `1BRS`)** — the most-studied protein
-interface in existence, tiny, and saturated with measured ΔΔG mutations. Its interface is
-dominated by **charged residues and salt bridges** — the exact chemistry that caught
-Arg95. It's our "hello world" *and* free Phase-2 familiarization. Only once the tool
-behaves correctly there do we point it at **ARL15–CNNM2** and ask: would it have flagged
-Arg95 where buriedness pointed at Y96?
-
----
-
 ## The feature set
 
 | Group | Features | Cost | Status |
@@ -139,26 +76,4 @@ tests/                  geometry & interface unit tests
 data/ , outputs/        (gitignored) downloaded structures & generated reports
 ```
 
-## Honest evaluation plan (Phase 2)
 
-- **Split by complex** so the same complex never appears in train *and* test.
-- **Handle class imbalance** (most single mutations *don't* disrupt binding).
-- Benchmark vs. the **naive "most-buried" baseline** and ≥1 **existing tool**.
-- **Feature-importance / ablation**: show which features actually carry signal (chemistry
-  vs. conservation vs. burial), turning "I threw everything in" into an evidence-backed
-  story.
-- **Case test**: ARL15–CNNM2 — does the model rank Arg95 above Y96?
-
-## References
-- Danneskiold-Samsøe et al., *AlphaFold2 enables accurate deorphanization of ligands to
-  single-pass receptors.* (Phase-3 north star)
-- *Structural insights into regulation of CNNM–TRPM7 divalent cation uptake by the small
-  GTPase ARL15* — the paper that identified Arg95. (PMID 37449820)
-- Sandra Tetteh, Rutgers thesis, *Regulation of TRPM7 by CNNM2 and Interacting Partners*
-  (2022).
-- Moal & Fernández-Recio, *SKEMPI 2.0* — mutation ΔΔG database (Phase-2 labels).
-- Cross-check tool: **LigPlot+/DIMPLOT** 2D interaction diagrams (H-bonds, hydrophobic
-  contacts) for validating our contact detection.
-
-## License
-MIT — see [LICENSE](LICENSE).
