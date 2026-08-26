@@ -39,3 +39,7 @@ Thumbs.db
 # --- Secrets (there shouldn't be any, but just in case) ---
 .env
 *.key
+
+# --- Local-only planning/reference docs (kept on disk, not published) ---
+CLAUDE.md
+docs/
