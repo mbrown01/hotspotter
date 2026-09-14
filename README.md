@@ -2,26 +2,45 @@
 
 ### Interaction-aware hot-spot prediction for protein–protein interfaces
 
-**Given the 3D structure of a protein complex, find the binding interface, compute a
-rich per-residue feature set, and rank which residues are most likely to be
-*load-bearing* — i.e. which ones, if mutated, would actually break the interaction.**
+Given the 3D structure of a protein complex, find the binding interface and rank which
+residues are **load-bearing** — the ones that, if mutated, would actually break the
+interaction.
 
-## The feature set
+## Why
 
-| Group | Features | Cost | Status |
-|---|---|---|---|
-| **Interaction chemistry** | salt bridges, H-bonds, hydrophobic contacts, π/aromatic stacking, disulfides | cheap | ✅ core |
-| **Burial / accessibility** | buried surface area (BSA), ΔSASA (unbound→bound), relative SASA | cheap | ✅ core |
-| **Interface topology** | central vs. peripheral (O-ring), cross-interface contact count, local packing | cheap | ✅ core |
-| **Residue identity / physicochem** | aa type, charge, size, hydrophobicity, aromaticity, flexibility propensity | cheap | ✅ core |
-| **Prediction confidence** | per-residue pLDDT, interface PAE (predicted structures only) | cheap | ✅ core |
-| **Flexibility proxy** | crystallographic B-factor (experimental structures) | cheap | ✅ core |
-| **Evolutionary conservation** | per-residue conservation from an MSA / ConSurf-DB | higher effort | 🔜 planned |
+The common shortcut is to assume the most *buried* residue at an interface is the most
+important one. That assumption is often wrong. A residue can be deeply buried and
+contribute little, while a less-buried one forming a salt bridge does the real work.
 
-**Explicitly out of scope** (known but not built): MD-based flexibility, full
-electrostatics surfaces (APBS), water-mediated contacts, protonation/pH, PTMs.
+This tool scores residues on **interaction chemistry**, not just burial, and reports a
+plain-English reason for every score.
 
----
+## Status
+
+Working pipeline, 18 unit tests passing. Validated on barnase–barstar (PDB `1BRS`), a
+system with known experimental answers: it recovers the textbook hot spots, and barnase
+Arg87 moves from rank #38 by burial alone to rank #5 once chemistry is accounted for.
+
+Ranking weights are hand-set and interpretable by design, not learned. A trained model
+on SKEMPI binding-affinity data is scaffolded but not yet run. Evolutionary conservation
+is planned, not built.
+
+Note that `1BRS` is the complex the weights were tuned against, so this demonstrates the
+pipeline is sound, not that it generalizes. Held-out validation is the next milestone.
+Not a state-of-the-art claim.
+
+## Features
+
+Per interface residue:
+
+- **Interaction chemistry** — salt bridges, H-bonds, hydrophobic contacts, π/aromatic stacking, disulfides
+- **Burial** — buried surface area, ΔSASA (unbound→bound), relative SASA
+- **Interface topology** — central vs. peripheral (O-ring), cross-interface contact count
+- **Residue identity** — type, charge, size, hydrophobicity, aromaticity
+- **Structure confidence** — B-factor (experimental), pLDDT / interface PAE (predicted)
+
+Out of scope: MD-based flexibility, full electrostatics (APBS), water-mediated contacts,
+protonation/pH, PTMs.
 
 ## Install & run
 
@@ -30,9 +49,6 @@ Windows (PowerShell), Python 3.10+:
 ```powershell
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-# optional native SASA backend (needs a C compiler on Windows; a pure-Python
-# Biopython fallback is used automatically if this isn't installed):
-# .\.venv\Scripts\python.exe -m pip install freesasa
 ```
 
 macOS / Linux / Colab:
@@ -42,34 +58,16 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-Run the barnase–barstar demo end-to-end (downloads `1BRS`, detects the interface,
-computes features, prints the ranked table):
+Run the barnase–barstar demo end-to-end:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_demo.py
-# or, via the CLI, on any PDB id or local file:
+```
+
+Or run the CLI on any PDB id or local file:
+
+```powershell
 .\.venv\Scripts\python.exe -m hotspotter.cli --pdb 1BRS --chains A,D
 ```
 
----
-
-## Repo layout
-
-```
-src/hotspotter/            the pipeline (importable package)
-  io.py                 load/clean structures (PDB + mmCIF)
-  interface.py          detect interface residues (contact- and SASA-based)
-  features/             one module per feature group
-  ranking.py            transparent heuristic scoring (+ human-readable reasoning)
-  pipeline.py           orchestrates parse -> interface -> features -> table
-  report.py / viz.py    exports and 3D visualization
-  cli.py                command-line entry point
-scripts/                fetch_structure.py, run_demo.py
-docs/biology/           structural-biochemistry explainers (learn as we build)
-docs/                   phase-1 plan, roadmap
-notebooks/              interactive walkthroughs
-tests/                  geometry & interface unit tests
-data/ , outputs/        (gitignored) downloaded structures & generated reports
-```
-
-
+Outputs land in `outputs/`: a per-residue feature table, a contact list, and a text report.
