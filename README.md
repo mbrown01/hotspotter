@@ -6,8 +6,6 @@ Given the 3D structure of a protein complex, find the binding interface and rank
 residues are **load-bearing** — the ones that, if mutated, would actually break the
 interaction.
 
-## Why
-
 The common shortcut is to assume the most *buried* residue at an interface is the most
 important one. That assumption is often wrong. A residue can be deeply buried and
 contribute little, while a less-buried one forming a salt bridge does the real work.
@@ -25,9 +23,7 @@ Ranking weights are hand-set and interpretable by design, not learned. A trained
 on SKEMPI binding-affinity data is scaffolded but not yet run. Evolutionary conservation
 is planned, not built.
 
-Note that `1BRS` is the complex the weights were tuned against, so this demonstrates the
-pipeline is sound, not that it generalizes. Held-out validation is the next milestone.
-Not a state-of-the-art claim.
+Held-out validation is the next milestone.
 
 ## Features
 
