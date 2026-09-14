@@ -28,6 +28,8 @@ outputs/
 
 # --- SKEMPI / large tables (Phase 2) ---
 data/skempi*/
+# raw download + built feature table; both regenerable, so keep them out of git
+data/skempi*.csv
 *.zip
 
 # --- Editors / OS ---

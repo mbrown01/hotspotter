@@ -48,7 +48,11 @@ R_KCAL = 1.987204259e-3
 # CONFIRM against the real header on first use (releases have renamed a few).
 SKEMPI_COLUMNS = {
     "pdb_field": "#Pdb",                 # e.g. "1CSE_E_I": pdbid _ sideA-chains _ sideB-chains
-    "mutation": "Mutation(s)_cleaned",    # e.g. "TI17A" or "TI17A,SI19G" (comma-separated)
+    # Use the _PDB column, NOT _cleaned: '_cleaned' is SKEMPI's own renumbering, while our
+    # ResidueId.resseq comes from the PDB author numbering that Biopython reads. They differ
+    # (1CSE row 0: PDB 'LI45G' vs cleaned 'LI38G'), and using '_cleaned' makes essentially
+    # every residue lookup miss.
+    "mutation": "Mutation(s)_PDB",        # e.g. "TI17A" or "TI17A,SI19G" (comma-separated)
     "kd_wt": "Affinity_wt_parsed",        # molar
     "kd_mut": "Affinity_mut_parsed",      # molar
     "temperature": "Temperature",         # Kelvin (sometimes with junk like "298(assumed)")
@@ -135,7 +139,7 @@ def load_skempi(csv_path: str | Path) -> pd.DataFrame:
 
 def build_dataset(
     skempi_csv: str | Path,
-    ddg_disruptive_threshold: float = 1.0,
+    ddg_disruptive_threshold: float = 2.0,
     only_single_mutations: bool = True,
     cache_dir: str | Path | None = None,
     limit_complexes: int | None = None,
@@ -150,8 +154,9 @@ def build_dataset(
     Parameters
     ----------
     ddg_disruptive_threshold : ΔΔG (kcal/mol) above which we call a mutation "disruptive"
-        for the binary label. 1.0 is a common, mild cutoff; ~2.0 is the classic hot-spot
-        definition. Kept as a knob because it directly shapes the class balance.
+        for the binary label. Default 2.0 is the classic hot-spot definition; 1.0 is a
+        milder cutoff that yields a larger positive class. Kept as a knob because it
+        directly shapes the class balance.
     only_single_mutations : restrict to single point mutations (the clean case) — multi-
         mutation rows conflate several residues' effects.
     limit_complexes : cap the number of distinct complexes (handy for a quick smoke run).
@@ -199,8 +204,12 @@ def build_dataset(
                 cache[pdb_id] = analyze_complex(pdb_id, chains=(side_a, side_b))
             except Exception as exc:  # download/parse/interface failure -> skip this complex
                 cache[pdb_id] = None
-                print(f"[skempi] skip {pdb_id}: {exc}")
+                print(f"[skempi] skip {pdb_id}: {exc}", flush=True)
             seen_complexes.add(pdb_id)
+            # Progress heartbeat: the full sweep is hundreds of downloads + pipeline runs.
+            if len(seen_complexes) % 25 == 0:
+                print(f"[skempi] ...{len(seen_complexes)} complexes seen, "
+                      f"{len(rows)} labeled rows so far", flush=True)
         analysis = cache[pdb_id]
         if analysis is None:
             skipped["no_structure"] += 1

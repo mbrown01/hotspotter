@@ -21,7 +21,6 @@ import pandas as pd
 
 from hotspotter.features.chemistry import Contact, detect_contacts, per_residue_chemistry
 from hotspotter.features.confidence import compute_confidence_features
-from hotspotter.features.conservation import compute_conservation_features
 from hotspotter.features.identity import compute_identity_features
 from hotspotter.features.sasa import SASA_BACKEND, compute_sasa_features
 from hotspotter.features.topology import compute_topology_features
@@ -91,7 +90,6 @@ def analyze_complex(
     source: str | Path,
     chains=None,
     is_predicted: bool = False,
-    conservation_scores: dict[ResidueId, float] | None = None,
     weights: Weights | None = None,
 ) -> ComplexAnalysis:
     """Run the full Phase-1 pipeline on one complex.
@@ -102,7 +100,6 @@ def analyze_complex(
     chains : which chains form the two sides (see :func:`_parse_chains`). None = auto.
     is_predicted : True if this is an AlphaFold/ColabFold model (so the B-factor column is
         pLDDT, and confidence features are labeled accordingly).
-    conservation_scores : optional precomputed per-residue conservation (Phase-1.5).
     weights : optional custom ranking weights.
     """
     # 1. Load ------------------------------------------------------------------------
@@ -134,7 +131,6 @@ def analyze_complex(
     topo = compute_topology_features(model, interface)
     ident = compute_identity_features(interface)
     conf = compute_confidence_features(interface, is_predicted=is_predicted)
-    cons = compute_conservation_features(interface, scores=conservation_scores)
 
     # 4. Merge into one tidy table ---------------------------------------------------
     rows = []
@@ -147,7 +143,7 @@ def analyze_complex(
             "resname": rid.resname,
             "side": ir.side,
         }
-        for group in (chem, sasa, topo, ident, conf, cons):
+        for group in (chem, sasa, topo, ident, conf):
             row.update(group.get(rid, {}))
         rows.append(row)
     df = pd.DataFrame(rows)
