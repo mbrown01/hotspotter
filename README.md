@@ -16,14 +16,10 @@ rich per-residue feature set, and rank which residues are most likely to be
 | **Residue identity / physicochem** | aa type, charge, size, hydrophobicity, aromaticity, flexibility propensity | cheap | ✅ core |
 | **Prediction confidence** | per-residue pLDDT, interface PAE (predicted structures only) | cheap | ✅ core |
 | **Flexibility proxy** | crystallographic B-factor (experimental structures) | cheap | ✅ core |
-| **Evolutionary conservation** | per-residue conservation from an MSA / ConSurf-DB | higher effort | 🔜 planned (highest-signal after chemistry — *don't skip*) |
+| **Evolutionary conservation** | per-residue conservation from an MSA / ConSurf-DB | higher effort | 🔜 planned |
 
 **Explicitly out of scope** (known but not built): MD-based flexibility, full
 electrostatics surfaces (APBS), water-mediated contacts, protonation/pH, PTMs.
-
-See [`docs/biology/`](docs/biology/) for the structural-biochemistry explainers written
-alongside the code, and [`docs/features_glossary.md`](docs/biology/03_features_glossary.md)
-for exact definitions and geometric cutoffs.
 
 ---
 
