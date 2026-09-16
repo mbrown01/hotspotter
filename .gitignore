@@ -30,6 +30,7 @@ outputs/
 data/skempi*/
 # raw download + built feature table; both regenerable, so keep them out of git
 data/skempi*.csv
+data/*.pt
 *.zip
 
 # --- Editors / OS ---
@@ -45,3 +46,9 @@ Thumbs.db
 # --- Local-only planning/reference docs (kept on disk, not published) ---
 CLAUDE.md
 docs/
+
+# --- Generated artifacts: results, predictions, figures (regenerable, not source) ---
+data/*.json
+predictions/
+figures/
+*.html

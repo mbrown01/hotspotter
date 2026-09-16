@@ -252,16 +252,28 @@ def _to_float(value) -> float | None:
 def _find_residue_row(analysis: ComplexAnalysis, mutation: Mutation):
     """Return the Phase-1 feature row (a Series) for the mutated residue, or None.
 
-    Matches on chain + residue number + (if the wild-type letter is given) identity, so a
-    numbering mismatch between SKEMPI and the PDB surfaces as 'not found' rather than a
-    silently wrong join.
+    Matches on chain + residue number + INSERTION CODE, then requires the wild-type letter
+    to agree. Both checks matter:
+
+      * Insertion codes are real, distinct residues. Kabat-numbered antibodies and proteases
+        put several at one number — 1EAW chain A has residues 60, 60a, 60b, 60c, 60e, 60f
+        and 60g. Matching on (chain, resseq) alone joins all seven mutations to whichever
+        row happens to come first, silently mislabeling them.
+      * A wild-type letter that disagrees means we are looking at a different residue than
+        SKEMPI meant, so the join is wrong even if a row was found. Refusing is correct:
+        the caller counts it as not-found, which is honest, where a wrong feature row would
+        quietly poison training.
     """
     t = analysis.table
-    hit = t[(t["chain"] == mutation.chain) & (t["resseq"] == mutation.resseq)]
+    want_icode = mutation.icode.strip()
+    icodes = t["icode"].fillna("").astype(str).str.strip() if "icode" in t.columns else ""
+    hit = t[(t["chain"] == mutation.chain)
+            & (t["resseq"] == mutation.resseq)
+            & (icodes == want_icode)]
     if len(hit) == 0:
         return None
     if "aa" in hit.columns:
-        typed = hit[hit["aa"] == mutation.wt]
-        if len(typed):
-            hit = typed
+        hit = hit[hit["aa"] == mutation.wt]
+        if len(hit) == 0:
+            return None
     return hit.iloc[0]
