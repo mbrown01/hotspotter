@@ -91,6 +91,7 @@ def analyze_complex(
     chains=None,
     is_predicted: bool = False,
     weights: Weights | None = None,
+    interface_cutoff: float | None = None,
 ) -> ComplexAnalysis:
     """Run the full Phase-1 pipeline on one complex.
 
@@ -117,7 +118,12 @@ def analyze_complex(
     side_a, side_b = _parse_chains(chains, chain_ids)
 
     # 2. Interface -------------------------------------------------------------------
-    interface = detect_interface(model, side_a, side_b)
+    # Explicit cutoff beats the module default: detect_interface binds the default
+    # at import time, so patching Cutoffs afterwards would silently do nothing.
+    if interface_cutoff is None:
+        interface = detect_interface(model, side_a, side_b)
+    else:
+        interface = detect_interface(model, side_a, side_b, cutoff=interface_cutoff)
     if len(interface) == 0:
         raise ValueError(
             f"No interface residues found between {side_a} and {side_b}. "
