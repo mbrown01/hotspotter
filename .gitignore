@@ -28,9 +28,11 @@ outputs/
 
 # --- SKEMPI / large tables (Phase 2) ---
 data/skempi*/
-# raw download + built feature table; both regenerable, so keep them out of git
-data/skempi*.csv
+# every table under data/ is a build product of the scripts in scripts/, so it is
+# regenerable and stays out of git; data/README.md is tracked explicitly below
+data/*.csv
 data/*.pt
+!data/README.md
 *.zip
 
 # --- Editors / OS ---
