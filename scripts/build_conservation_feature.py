@@ -60,13 +60,19 @@ def main() -> int:
     ap.add_argument("--model", default=DEFAULT_MODEL)
     ap.add_argument("--batch-size", type=int, default=32)
     ap.add_argument("--max-len", type=int, default=1022)
+    ap.add_argument("--checkpoint-every", type=int, default=10,
+                    help="save a partial file every N complexes (0 disables)")
+    ap.add_argument("--resume", action="store_true",
+                    help="continue from an existing .partial checkpoint")
     args = ap.parse_args()
 
     import torch
     from transformers import AutoModelForMaskedLM, AutoTokenizer
 
     graphs_pt = REPO_ROOT / "data" / f"graphs_{args.strategy}.pt"
-    out_pt = REPO_ROOT / "data" / f"conservation_{args.strategy}.pt"
+    tag = "650m" if "650M" in args.model else ("8m" if "8M" in args.model else "esm")
+    out_pt = REPO_ROOT / "data" / f"conservation_{args.strategy}_{tag}.pt"
+    partial_pt = out_pt.with_suffix(out_pt.suffix + ".partial")
     if not graphs_pt.exists():
         print(f"ERROR: missing {graphs_pt}", file=sys.stderr)
         return 2
@@ -88,7 +94,18 @@ def main() -> int:
     out: dict[str, "torch.Tensor"] = {}
     n_scored = n_missing = 0
 
+    # A 650M-parameter masked-marginal sweep is a ~70 minute job. Losing it to a closed
+    # laptop lid once was enough: checkpoint so a restart costs minutes, not the whole run.
+    if args.resume and partial_pt.exists():
+        out = torch.load(partial_pt, weights_only=False)
+        print(f"  resuming: {len(out)} complexes already scored\n", flush=True)
+    elif partial_pt.exists():
+        print(f"  NOTE: {partial_pt.name} exists; ignoring it "
+              f"(pass --resume to continue)\n", flush=True)
+
     for n, g in enumerate(graphs, start=1):
+        if g.complex_group in out:
+            continue
         keys = [parse_label(lab) for lab in g.residue_labels]
         wanted = {k[0] for k in keys}
         try:
@@ -137,10 +154,16 @@ def main() -> int:
                 n_scored += 1
         out[g.complex_group] = torch.tensor(col)
 
-        if n % 25 == 0:
-            print(f"  [cons] ...{n}/{len(graphs)} complexes", flush=True)
+        if args.checkpoint_every and len(out) % args.checkpoint_every == 0:
+            tmp = partial_pt.with_suffix(".tmp")
+            torch.save(out, tmp)
+            tmp.replace(partial_pt)          # atomic: an interrupt cannot truncate it
+
+        if n % 10 == 0:
+            print(f"  [cons] ...{n}/{len(graphs)} complexes ({len(out)} scored)", flush=True)
 
     torch.save(out, out_pt)
+    partial_pt.unlink(missing_ok=True)       # a complete run supersedes the checkpoint
     allv = np.concatenate([v.numpy().ravel() for v in out.values()])
     print(f"\n  scored {n_scored} nodes, {n_missing} fell back to max entropy")
     print(f"  entropy: mean {allv.mean():.4f}  std {allv.std():.4f}  "
