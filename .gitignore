@@ -46,7 +46,6 @@ Thumbs.db
 *.key
 
 # --- Local-only planning/reference docs (kept on disk, not published) ---
-CLAUDE.md
 docs/
 
 # --- Generated artifacts: results, predictions, figures (regenerable, not source) ---
@@ -54,3 +53,6 @@ data/*.json
 predictions/
 figures/
 *.html
+
+# --- Local-only notebooks (exploration, not part of the published pipeline) ---
+notebooks/

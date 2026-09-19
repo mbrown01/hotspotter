@@ -36,6 +36,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
@@ -72,7 +73,7 @@ def main() -> int:
 
     import torch
 
-    from hotspotter.ml.gnn_model import GNNConfig, HotSpotGAT
+    from gnn_model import GNNConfig, HotSpotGAT
 
     ckpts = ([Path(c) for c in args.checkpoints] if args.checkpoints
              else sorted((REPO_ROOT / "data").glob("model_full_s*.pt")))

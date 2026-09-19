@@ -29,10 +29,11 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import pandas as pd  # noqa: E402
 
-from hotspotter.features_v2 import build_v2_table  # noqa: E402
+from features_v2 import build_v2_table  # noqa: E402
 from hotspotter.ml.dataset import (  # noqa: E402
     SKEMPI_COLUMNS, _clean_temperature, _to_float, ddg_from_kd, load_skempi,
     parse_mutation, parse_pdb_field,

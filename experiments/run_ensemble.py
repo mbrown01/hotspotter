@@ -39,10 +39,10 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from hotspotter.ml.dataset import parse_mutation  # noqa: E402
-from run_v2_benchmark import SHARED_NON_CHEMISTRY, V1_CHEMISTRY, collapse  # noqa: E402
+from hotspotter.ml.features import XGB_FEATURES, collapse  # noqa: E402
 
 LABEL_RE = re.compile(r"^(?P<chain>.+)/(?P<resname>[A-Z]{3})(?P<resseq>-?\d+)(?P<icode>[A-Za-z]?)$")
-FEATURES = SHARED_NON_CHEMISTRY + V1_CHEMISTRY
+FEATURES = list(XGB_FEATURES)
 
 
 def gnn_oof(graphs_pt: Path, split: dict, seeds: list[int], args):
@@ -50,7 +50,7 @@ def gnn_oof(graphs_pt: Path, split: dict, seeds: list[int], args):
     import torch
     from torch_geometric.loader import DataLoader
 
-    from hotspotter.ml.gnn_model import GNNConfig, HotSpotGAT, masked_bce_loss
+    from gnn_model import GNNConfig, HotSpotGAT, masked_bce_loss
 
     graphs = torch.load(graphs_pt, weights_only=False)
     by_complex = {g.complex_group: g for g in graphs}

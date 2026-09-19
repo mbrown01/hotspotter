@@ -37,6 +37,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np  # noqa: E402
 
@@ -160,7 +161,7 @@ def train_one_fold(train_graphs, val_graphs, test_graphs, cfg, args, device, fol
     from sklearn.metrics import average_precision_score, roc_auc_score
     from torch_geometric.loader import DataLoader
 
-    from hotspotter.ml.gnn_model import HotSpotGAT, masked_bce_loss
+    from gnn_model import HotSpotGAT, masked_bce_loss
 
     torch.manual_seed(args.seed + fold_i)
 
@@ -283,7 +284,7 @@ def main() -> int:
     import torch
     from torch_geometric.loader import DataLoader
 
-    from hotspotter.ml.gnn_model import GNNConfig, HotSpotGAT
+    from gnn_model import GNNConfig, HotSpotGAT
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     graphs, by_complex, split = load_graphs_and_split(args.graphs, args.split)
@@ -350,7 +351,7 @@ def main() -> int:
 
     # ---- deployable model: train on everything, no held-out set ------------------------
     if args.train_full:
-        from hotspotter.ml.gnn_model import HotSpotGAT, masked_bce_loss
+        from gnn_model import HotSpotGAT, masked_bce_loss
         from torch_geometric.loader import DataLoader as DL
 
         torch.manual_seed(args.seed)

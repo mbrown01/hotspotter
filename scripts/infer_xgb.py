@@ -39,9 +39,9 @@ import pandas as pd  # noqa: E402
 
 from hotspotter.ml.dataset import parse_mutation  # noqa: E402
 from hotspotter.pipeline import analyze_complex  # noqa: E402
-from run_v2_benchmark import SHARED_NON_CHEMISTRY, V1_CHEMISTRY, collapse  # noqa: E402
+from hotspotter.ml.features import XGB_FEATURES, collapse  # noqa: E402
 
-FEATURES = SHARED_NON_CHEMISTRY + V1_CHEMISTRY
+FEATURES = list(XGB_FEATURES)
 LABEL_RE = re.compile(r"^(?P<chain>.+)/(?P<resname>[A-Z]{3})(?P<resseq>-?\d+)(?P<icode>[A-Za-z]?)$")
 
 

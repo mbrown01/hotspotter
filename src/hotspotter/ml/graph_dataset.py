@@ -74,32 +74,19 @@ from hotspotter.ml.dataset import (
     parse_mutation,
     parse_pdb_field,
 )
+from hotspotter.ml.features import DDG_HOTSPOT_THRESHOLD, NODE_FEATURES
 from hotspotter.pipeline import ComplexAnalysis, analyze_complex
 
 # ---------------------------------------------------------------------------------------
 # Feature layout — pinned so every graph in the dataset has identical column semantics.
 # ---------------------------------------------------------------------------------------
 
-#: The 26 numeric Phase-1 columns used as node features, in fixed order. Phase-1 ranking
-#: outputs (naive_score/hotspot_score/*_rank) are deliberately EXCLUDED: they are derived
-#: from these same features by hand-set weights, so feeding them in would leak the heuristic
-#: the model is supposed to replace. Identifier/text columns are excluded as non-numeric.
-NODE_FEATURES: tuple[str, ...] = (
-    # interaction chemistry
-    "n_salt_bridges", "n_hydrogen_bonds", "n_hydrophobic", "n_aromatic", "n_disulfides",
-    "n_chem_contacts", "has_salt_bridge",
-    # burial / accessibility
-    "sasa_complex", "sasa_unbound", "dsasa", "rsa_complex", "rsa_unbound",
-    "is_interface_sasa",
-    # interface topology
-    "n_cross_contacts", "n_atom_contacts", "interface_neighbors", "packing_density",
-    "centrality",
-    # residue identity / physicochemistry
-    "charge", "hydropathy", "volume", "flexibility", "is_aromatic", "is_charged",
-    "is_polar",
-    # structure confidence
-    "bfactor",
-)
+#: ``NODE_FEATURES`` and ``DDG_HOTSPOT_THRESHOLD`` are defined in ``hotspotter.ml.features``
+#: and re-exported here, because the node matrix and the tabular model must never disagree
+#: about column order or the hot-spot cutoff. Phase-1 ranking outputs
+#: (naive_score/hotspot_score/*_rank) are deliberately EXCLUDED from the node features: they
+#: are derived from these same columns by hand-set weights, so feeding them in would leak
+#: the heuristic the model is supposed to replace.
 
 #: Interaction types that become multi-hot dimensions of ``edge_attr``.
 EDGE_TYPES: tuple[str, ...] = (
@@ -112,9 +99,6 @@ EDGE_ATTR_NAMES: tuple[str, ...] = EDGE_TYPES + ("distance", "is_cross_interface
 #: Default CB-CB cutoff (A) for same-side edges. Graph-construction convention, not a
 #: Phase-1 chemistry cutoff.
 INTRA_SIDE_CUTOFF = 8.0
-
-#: ddG (kcal/mol) at or above which a mutation counts as disruptive. Matches dataset.py.
-DDG_HOTSPOT_THRESHOLD = 2.0
 
 
 def node_key(chain: str, resseq, icode: str = " ") -> tuple[str, int, str]:

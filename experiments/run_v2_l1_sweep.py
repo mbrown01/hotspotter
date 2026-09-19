@@ -51,7 +51,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from run_v2_benchmark import (  # noqa: E402
     SHARED_NON_CHEMISTRY, V1_CHEMISTRY, collapse,
 )
-from hotspotter.features_v2 import V2_CHEMISTRY_COLUMNS  # noqa: E402
+from features_v2 import V2_CHEMISTRY_COLUMNS  # noqa: E402
 
 #: Aggregates whose components now exist as separate columns. Keeping both the sum and its
 #: parts is textbook collinearity: n_chem_contacts is the sum of five other columns, and

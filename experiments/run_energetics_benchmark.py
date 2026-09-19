@@ -58,11 +58,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from hotspotter.energetics import ENERGY_COLUMNS  # noqa: E402
+from energetics import ENERGY_COLUMNS  # noqa: E402
 from hotspotter.ml.dataset import parse_mutation  # noqa: E402
-from run_v2_benchmark import SHARED_NON_CHEMISTRY, V1_CHEMISTRY, collapse  # noqa: E402
+from hotspotter.ml.features import XGB_FEATURES, collapse  # noqa: E402
 
-BASE_FEATURES = SHARED_NON_CHEMISTRY + V1_CHEMISTRY
+BASE_FEATURES = list(XGB_FEATURES)
 
 #: The energetics columns that are NOT a deterministic function of dsasa.
 NOVEL_ENERGY = ["e_coulomb", "e_desolvation", "charge_buried", "n_charged_contacts"]
