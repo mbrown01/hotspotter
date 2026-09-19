@@ -26,7 +26,6 @@ from hotspotter.features.sasa import SASA_BACKEND, compute_sasa_features
 from hotspotter.features.topology import compute_topology_features
 from hotspotter.interface import Interface, detect_interface, guess_two_sides
 from hotspotter.io import (
-    ResidueId,
     fetch_pdb,
     get_chain_ids,
     get_model,
