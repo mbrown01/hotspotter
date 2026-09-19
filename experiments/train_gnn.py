@@ -23,8 +23,8 @@ THREE WAYS THIS COULD FOOL US, AND WHAT IS DONE ABOUT EACH
 
 Usage::
 
-    .\\.venv\\Scripts\\python.exe scripts\\train_gnn.py --dry-run   # shapes only, no training
-    .\\.venv\\Scripts\\python.exe scripts\\train_gnn.py
+    .\\.venv\\Scripts\\python.exe experiments\\train_gnn.py --dry-run   # shapes only, no training
+    .\\.venv\\Scripts\\python.exe experiments\\train_gnn.py
 """
 
 from __future__ import annotations

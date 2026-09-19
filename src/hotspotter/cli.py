@@ -1,8 +1,8 @@
 """Command-line entry point:  python -m hotspotter.cli --pdb 1BRS --chains A,D
 
-Runs the full Phase-1 pipeline and writes the feature table, contact list, and report to
+Runs the full feature pipeline and writes the feature table, contact list, and report to
 ``outputs/`` (or a directory you choose). Designed to also be scriptable in batch for the
-Phase-2 SKEMPI sweep.
+SKEMPI sweep.
 """
 
 from __future__ import annotations

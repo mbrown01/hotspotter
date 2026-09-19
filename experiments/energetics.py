@@ -48,7 +48,6 @@ HONEST LIMITS
 
 from __future__ import annotations
 
-import math
 import shutil
 import subprocess
 import sys

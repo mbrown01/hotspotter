@@ -1,15 +1,15 @@
-"""Phase-2 GNN data: turn a ComplexAnalysis into a PyTorch Geometric ``Data`` object.
+"""Graph data: turn a ComplexAnalysis into a PyTorch Geometric ``Data`` object.
 
 This is the graph-shaped sibling of :mod:`hotspotter.ml.dataset`. That module flattens each
 mutated residue into an independent row for XGBoost; this one keeps the interface as what it
 actually is — a graph — so a GNN can use a residue's neighborhood, not just its own features.
-Both read the SAME Phase-1 output, so the two paths stay comparable and neither disturbs the
+Both read the SAME feature-pipeline output, so the two paths stay comparable and neither disturbs the
 other.
 
 WHAT ONE GRAPH IS
     One graph = one protein complex's interface.
       nodes      interface residues (both sides)
-      node feats the 26 numeric Phase-1 columns, in a pinned order (NODE_FEATURES)
+      node feats the 26 numeric feature-table columns, in a pinned order (NODE_FEATURES)
       edges      residue-residue contacts, of TWO classes (see below)
       edge feats which interaction types the pair makes, how far apart, and which class
       labels     per-node hot-spot label from SKEMPI, with a mask for untested residues
@@ -23,12 +23,12 @@ TWO EDGE CLASSES, AND WHY THIS MATTERS
 
     So we add a second edge class here: same-side residue pairs whose representative atoms
     (CB, or CA for glycine) fall within ``intra_side_cutoff``. This is computed in THIS
-    module rather than in ``interface.py`` so locked Phase-1 behavior is untouched. The
+    module rather than in ``interface.py`` so locked feature-extraction behaviour is untouched. The
     ``is_cross_interface`` flag in ``edge_attr`` lets the model treat the two classes
     differently.
 
-    NOTE FOR SANDRA: the 8 A CB-CB default for same-side edges is a graph-construction
-    convention (common in protein GNNs), not one of the Phase-1 chemistry cutoffs. It is a
+    NOTE: the 8 A CB-CB default for same-side edges is a graph-construction
+    convention (common in protein GNNs), not one of the chemistry cutoffs. It is a
     knob, not a measurement.
 
 LABELS, AND THE COLLAPSE PROBLEM
@@ -52,7 +52,7 @@ LABELS, AND THE COLLAPSE PROBLEM
 
 torch and torch_geometric are imported LAZILY inside the functions that need them, mirroring
 how ``train.py`` defers sklearn/xgboost — so ``import hotspotter.ml`` never requires a 2 GB
-deep-learning stack. Install them with ``pip install -e .[gnn]``.
+deep-learning stack. Install them with ``pip install -e .[experiments]``.
 """
 
 from __future__ import annotations
@@ -83,7 +83,7 @@ from hotspotter.pipeline import ComplexAnalysis, analyze_complex
 
 #: ``NODE_FEATURES`` and ``DDG_HOTSPOT_THRESHOLD`` are defined in ``hotspotter.ml.features``
 #: and re-exported here, because the node matrix and the tabular model must never disagree
-#: about column order or the hot-spot cutoff. Phase-1 ranking outputs
+#: about column order or the hot-spot cutoff. Heuristic ranking outputs
 #: (naive_score/hotspot_score/*_rank) are deliberately EXCLUDED from the node features: they
 #: are derived from these same columns by hand-set weights, so feeding them in would leak
 #: the heuristic the model is supposed to replace.
@@ -97,14 +97,14 @@ EDGE_TYPES: tuple[str, ...] = (
 EDGE_ATTR_NAMES: tuple[str, ...] = EDGE_TYPES + ("distance", "is_cross_interface")
 
 #: Default CB-CB cutoff (A) for same-side edges. Graph-construction convention, not a
-#: Phase-1 chemistry cutoff.
+#: chemistry cutoff.
 INTRA_SIDE_CUTOFF = 8.0
 
 
 def node_key(chain: str, resseq, icode: str = " ") -> tuple[str, int, str]:
     """The key that identifies one residue node: chain, number, and insertion code.
 
-    Insertion codes are normalized to "" so that " ", "", and NaN all agree — the Phase-1
+    Insertion codes are normalized to "" so that " ", "", and NaN all agree — the feature pipeline's
     table stores the code stripped while ``ResidueId`` stores it as " ".
     """
     ic = "" if icode is None else str(icode).strip()
@@ -198,7 +198,7 @@ def build_node_matrix(analysis: ComplexAnalysis):
     missing = [c for c in NODE_FEATURES if c not in t.columns]
     if missing:
         raise KeyError(
-            f"Phase-1 table is missing expected node features {missing}. "
+            f"feature table is missing expected node features {missing}. "
             f"Available: {list(t.columns)}"
         )
 
@@ -413,7 +413,7 @@ def complex_to_data(
 
     Parameters
     ----------
-    analysis  : Phase-1 output for this complex.
+    analysis  : feature-pipeline output for this complex.
     mutations : tidy SKEMPI rows for THIS complex (from :func:`prepare_mutation_frame`,
                 filtered to one pdb_id). Pass an empty frame for an unlabeled graph.
 

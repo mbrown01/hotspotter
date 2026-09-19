@@ -23,8 +23,8 @@ HOW TO READ THE OUTPUT
 
 Usage::
 
-    .\\.venv\\Scripts\\python.exe scripts\\infer.py --pdb 8F6D --chains A,B
-    .\\.venv\\Scripts\\python.exe scripts\\infer.py --pdb 8F6D --chains A,B --highlight B:95 B:96
+    .\\.venv\\Scripts\\python.exe experiments\\infer.py --pdb 8F6D --chains A,B
+    .\\.venv\\Scripts\\python.exe experiments\\infer.py --pdb 8F6D --chains A,B --highlight B:95 B:96
 """
 
 from __future__ import annotations

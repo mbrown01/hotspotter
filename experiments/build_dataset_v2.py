@@ -16,8 +16,8 @@ THREE DELIBERATE DIFFERENCES FROM THE V1 EXTRACTION
 
 Usage::
 
-    .\\.venv\\Scripts\\python.exe scripts\\build_dataset_v2.py
-    .\\.venv\\Scripts\\python.exe scripts\\build_dataset_v2.py --limit 20   # smoke run
+    .\\.venv\\Scripts\\python.exe experiments\\build_dataset_v2.py
+    .\\.venv\\Scripts\\python.exe experiments\\build_dataset_v2.py --limit 20   # smoke run
 """
 
 from __future__ import annotations

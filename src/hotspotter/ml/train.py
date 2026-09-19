@@ -1,6 +1,6 @@
-"""Train and honestly evaluate the Phase-2 hot-spot classifier.
+"""Train and honestly evaluate the hot-spot classifier.
 
-The whole point of Phase 2 is to replace Phase 1's hand-set weights with weights *learned*
+The point is to replace the hand-set ranking weights with weights *learned*
 from measured ΔΔG, and then to check — rigorously — whether that actually beats the naive
 "most-buried" baseline, and which features carry the signal.
 
@@ -20,9 +20,8 @@ Three things this module gets right on purpose:
      test split, and we report feature importances / support leave-one-group-out ablation,
      turning "I computed many features" into "here's which ones actually mattered."
 
-STATUS: standard sklearn/xgboost code, written but not yet run (needs `pip install -e .[ml]`
-and a dataset from dataset.build_dataset). No fabricated results here — run it to get real
-numbers.
+This module is the training primitive. For the reported numbers under the full protocol
+(fixed folds, multiple seeds, ranking metrics), use ``scripts/evaluate.py`` instead.
 """
 
 from __future__ import annotations
@@ -36,7 +35,7 @@ import pandas as pd
 NON_FEATURE_COLUMNS = {
     "residue", "chain", "resseq", "icode", "resname", "side", "aa", "reasoning",
     "mutation", "complex_group", "ddg", "label",
-    "naive_score", "naive_rank", "hotspot_score", "hotspot_rank",  # Phase-1 scores: leak-y, exclude
+    "naive_score", "naive_rank", "hotspot_score", "hotspot_rank",  # heuristic ranking scores: leak-y, exclude
 }
 
 
@@ -49,7 +48,7 @@ class TrainResult:
 
 
 def select_features(df: pd.DataFrame) -> list[str]:
-    """Numeric feature columns only, excluding identifiers/targets/Phase-1 scores."""
+    """Numeric feature columns only, excluding identifiers/targets/heuristic ranking scores."""
     feats = []
     for c in df.columns:
         if c in NON_FEATURE_COLUMNS:
@@ -81,7 +80,7 @@ def train_baseline(
         from xgboost import XGBClassifier
     except ImportError as exc:  # pragma: no cover
         raise ImportError(
-            "Phase-2 training needs the ml extras: pip install -e .[ml]  "
+            "Training needs scikit-learn and xgboost: pip install -e .  "
             "(scikit-learn, xgboost)."
         ) from exc
 
@@ -143,7 +142,9 @@ def cross_validated_scores(df: pd.DataFrame, n_splits: int = 5, random_state: in
         from sklearn.metrics import average_precision_score
         from xgboost import XGBClassifier
     except ImportError as exc:  # pragma: no cover
-        raise ImportError("Needs ml extras: pip install -e .[ml]") from exc
+        raise ImportError(
+            "Needs scikit-learn and xgboost: pip install -e ."
+        ) from exc
 
     features = select_features(df)
     X = df[features].fillna(df[features].median(numeric_only=True))

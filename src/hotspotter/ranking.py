@@ -12,7 +12,7 @@ This module encodes the project's central thesis in code, side by side:
       English ``reasoning`` string listing *why* it scored where it did.
 
 IMPORTANT (honesty): these weights are hand-set and interpretable, NOT learned. That's the
-whole point of Phase 1 — a sensible, explainable baseline. Phase 2 replaces this fixed
+point of the heuristic — a sensible, explainable baseline. The trained model replaces this fixed
 scoring with a model trained on SKEMPI's measured ΔΔG labels, and the ablation there tells
 us which of these features actually carry the signal. Until then, treat the ranking as a
 well-reasoned hypothesis generator, not ground truth.

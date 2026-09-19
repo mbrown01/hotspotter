@@ -1,7 +1,7 @@
 """Export the analysis: model-ready feature table, a contact list, and a readable report.
 
 Three artifacts, each with a job:
-  - features CSV   the full per-residue table (this is what Phase 2 trains on).
+  - features CSV   the full per-residue table (this is what the model trains on).
   - contacts CSV   every detected interaction (for validating against LigPlot+/DIMPLOT).
   - report  .txt   a human summary: top hot-spot candidates + naive-vs-chemistry comparison.
 """

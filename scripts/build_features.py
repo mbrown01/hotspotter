@@ -1,7 +1,7 @@
 """Build the training table: SKEMPI 2.0 -> structures -> per-residue features -> labels.
 
 This is the data-processing entry point. It reads SKEMPI, downloads each complex, runs the
-Phase-1 feature pipeline over every interface, joins measured ddG onto the matching residue,
+feature pipeline over every interface, joins measured ddG onto the matching residue,
 and writes ``data/skempi_features_full.csv`` -- the input to every model and every
 evaluation in the repo.
 
@@ -63,11 +63,11 @@ def main() -> int:
 
     scope = f"limit={args.limit} complexes" if args.limit else "FULL DATASET (no cap)"
     print("=" * 78)
-    print(f"  Phase-2 run  |  {scope}  |  ddG threshold={args.threshold}")
+    print(f"  feature build  |  {scope}  |  ddG threshold={args.threshold}")
     print("=" * 78)
 
     # ---- 1. Build the labeled feature table -----------------------------------------
-    # Each new complex is downloaded from RCSB and run through the Phase-1 pipeline,
+    # Each new complex is downloaded from RCSB and run through the feature pipeline,
     # so this is the slow step (hours for the full set). build_dataset prints progress
     # and a final skip/keep summary.
     if args.reuse and args.out.exists():

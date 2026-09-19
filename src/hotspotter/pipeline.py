@@ -1,4 +1,4 @@
-"""The Phase-1 pipeline: structure in -> ranked per-residue feature table out.
+"""The feature pipeline: structure in -> ranked per-residue feature table out.
 
     analyze_complex(source, chains) does the whole thing:
         1. load (download by PDB id, or read a local file)
@@ -8,7 +8,7 @@
         5. rank with the transparent hot-spot heuristic
 
 The returned table is deliberately "model-ready": one row per interface residue, one
-column per feature. That's exactly the shape Phase 2 trains on — run this across SKEMPI's
+column per feature. That is exactly the shape the model trains on — run this across SKEMPI's
 complexes, join the ΔΔG labels, and you have a training set. Same engine, two uses.
 """
 
@@ -37,7 +37,7 @@ from hotspotter.ranking import Weights, hotspot_score
 
 @dataclass
 class ComplexAnalysis:
-    """Everything Phase 1 produces for one complex."""
+    """Everything the pipeline produces for one complex."""
 
     table: pd.DataFrame                 # ranked, one row per interface residue
     contacts: list[Contact]             # every detected cross-interface interaction
@@ -93,7 +93,7 @@ def analyze_complex(
     weights: Weights | None = None,
     interface_cutoff: float | None = None,
 ) -> ComplexAnalysis:
-    """Run the full Phase-1 pipeline on one complex.
+    """Run the full feature pipeline on one complex.
 
     Parameters
     ----------

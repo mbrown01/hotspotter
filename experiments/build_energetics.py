@@ -5,12 +5,12 @@ in hotspotter.energetics, and writes one row per interface residue. Checkpoints 
 complexes so an interrupted run resumes instead of restarting.
 """
 from __future__ import annotations
-import argparse, json, sys, time
+import argparse, sys, time
 from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src")); sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pandas as pd
-from energetics import energetics_for_complex, ENERGY_COLUMNS
+from energetics import energetics_for_complex
 from hotspotter.io import fetch_pdb
 from hotspotter.ml.dataset import SKEMPI_COLUMNS, load_skempi, parse_pdb_field
 from hotspotter.pipeline import analyze_complex

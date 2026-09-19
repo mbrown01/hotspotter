@@ -30,7 +30,7 @@ THE ALIGNMENT PROBLEM, AND HOW IT IS HANDLED
 
 Usage::
 
-    .\\.venv\\Scripts\\python.exe scripts\\build_esm_features.py --strategy alanine
+    .\\.venv\\Scripts\\python.exe experiments\\build_esm_features.py --strategy alanine
 """
 
 from __future__ import annotations

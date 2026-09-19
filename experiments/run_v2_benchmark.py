@@ -20,8 +20,8 @@ MATCHING THE V1 PROTOCOL EXACTLY
 
 Usage::
 
-    .\\.venv\\Scripts\\python.exe scripts\\run_v2_benchmark.py
-    .\\.venv\\Scripts\\python.exe scripts\\run_v2_benchmark.py --strategy max
+    .\\.venv\\Scripts\\python.exe experiments\\run_v2_benchmark.py
+    .\\.venv\\Scripts\\python.exe experiments\\run_v2_benchmark.py --strategy max
 """
 
 from __future__ import annotations

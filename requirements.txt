@@ -17,7 +17,6 @@ xgboost>=2.0         # the accepted model
 
 # --- Visualization ---
 matplotlib>=3.8
-py3Dmol>=2.0         # interactive 3D interface views
 
 # --- Dev ---
 pytest>=8.0

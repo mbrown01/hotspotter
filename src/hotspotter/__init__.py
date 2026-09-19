@@ -1,6 +1,6 @@
 """hotspotter — interaction-aware hot-spot prediction for protein-protein interfaces.
 
-Phase 1: a per-residue feature-extraction pipeline for protein complexes.
+A per-residue feature-extraction pipeline for protein complexes.
 
 Typical use::
 

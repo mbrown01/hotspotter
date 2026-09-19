@@ -28,7 +28,7 @@ WHAT IS PRODUCED
 
 Usage::
 
-    .\\.venv\\Scripts\\python.exe scripts\\build_stack_features.py --strategy alanine
+    .\\.venv\\Scripts\\python.exe experiments\\build_stack_features.py --strategy alanine
 """
 
 from __future__ import annotations
@@ -45,7 +45,7 @@ import json  # noqa: E402
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from hotspotter.ml.graph_dataset import NODE_FEATURES, node_key  # noqa: E402
+from hotspotter.ml.graph_dataset import NODE_FEATURES  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from run_matched_baseline import build_matched_frame  # noqa: E402
