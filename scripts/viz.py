@@ -143,11 +143,16 @@ HTML = """<title>{title}</title>
     <div>
       <div id="viewer"></div>
       <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-        <button class="btn" onclick="resetView()">Reset view</button>
+        <button class="btn" onclick="focusInterface()">Focus interface</button>
+        <button class="btn" onclick="resetView()">Whole complex</button>
         <button class="btn" onclick="toggleSurface()">Toggle surface</button>
         <button class="btn" onclick="toggleLabels()">Toggle labels</button>
         {channel_button}
       </div>
+      <p class="note" style="margin-top:8px">
+        drag = rotate &middot; <b>right-drag or Ctrl+drag = pan</b> &middot;
+        scroll = zoom &middot; Shift+drag = roll
+      </p>
       {channel_caption}
     </div>
 
@@ -155,11 +160,8 @@ HTML = """<title>{title}</title>
       <div class="card">
         <h2 data-ramp-title>Predicted probability</h2>
         <div class="ramp"></div>
-        <div class="ramp-lab"><span>0.0 not scored</span><span>1.0</span></div>
-        <p class="note" style="margin-top:10px">
-          White means the residue is not at the interface and was never scored &mdash;
-          not that it was scored and found unimportant.
-        </p>
+        <div class="ramp-lab"><span>0.0</span><span>1.0</span></div>
+        {chain_legend}
       </div>
 
       {contrast_card}
@@ -190,12 +192,31 @@ const HIGHLIGHTS = {highlights_json};
 // two colourings are a fair comparison rather than a rigged one.
 const BURIAL = {burial_json};
 const HAS_BURIAL = Object.keys(BURIAL).length > 0;
+// Base colour per chain, so the two proteins are told apart at a glance. Only residues
+// that were actually SCORED take the red gradient on top; everything else keeps its chain
+// colour. That also removes an ambiguity the earlier version had, where an unscored
+// residue and a scored-but-cold residue were both white.
+const CHAIN_COLORS = {chain_colors_json};
+const SCORED = {scored_json};
 let channel = "model";
 
 function scoreOf(a) {{
   if (channel === "model") return a.b;             // B-factor column holds the model score
   const v = BURIAL[a.chain + "_" + a.resi];
   return v === undefined ? 0 : v;
+}}
+
+const SCORED_SET = new Set();
+Object.keys(SCORED).forEach(ch => SCORED[ch].forEach(r => SCORED_SET.add(ch + "_" + r)));
+const HAS_CHAIN_COLORS = Object.keys(CHAIN_COLORS).length > 0;
+
+function colorFor(a) {{
+  // unscored residue in a chain-coloured figure keeps its chain colour; scored residues
+  // take the heat ramp. Used by the surface so it matches the cartoon exactly.
+  if (HAS_CHAIN_COLORS && !SCORED_SET.has(a.chain + "_" + a.resi)) {{
+    return CHAIN_COLORS[a.chain] || "#cccccc";
+  }}
+  return ramp(scoreOf(a));
 }}
 
 function ramp(t) {{
@@ -228,8 +249,21 @@ function addLabels() {{
 }}
 
 function draw() {{
-  // everything: cartoon on the probability gradient
-  viewer.setStyle({{}}, {{ cartoon: {{ colorfunc: a => ramp(scoreOf(a)), thickness: 0.4 }} }});
+  // 1. base layer: each chain in its own muted colour, thin cartoon
+  Object.keys(CHAIN_COLORS).forEach(ch => {{
+    viewer.setStyle({{ chain: ch }},
+      {{ cartoon: {{ color: CHAIN_COLORS[ch], thickness: 0.35 }} }});
+  }});
+  if (Object.keys(CHAIN_COLORS).length === 0) {{
+    viewer.setStyle({{}}, {{ cartoon: {{ colorfunc: a => ramp(scoreOf(a)), thickness: 0.4 }} }});
+  }}
+
+  // 2. scored interface residues: the gradient, on a thicker ribbon so the interface
+  //    reads as a band of colour rather than isolated flecks
+  Object.keys(SCORED).forEach(ch => {{
+    viewer.setStyle({{ chain: ch, resi: SCORED[ch] }},
+      {{ cartoon: {{ colorfunc: a => ramp(scoreOf(a)), thickness: 0.75 }} }});
+  }});
 
   HIGHLIGHTS.forEach(h => {{
     const sel = {{ chain: h.chain, resi: h.resi }};
@@ -262,7 +296,9 @@ function boot() {{
                                {{ backgroundColor: "0xffffff" }});
   viewer.addModel(PDB, "pdb");
   draw();
-  viewer.zoomTo();
+  // open on the interface: it is the subject of the figure, and on a large complex it is
+  // often a small patch on the rim that the whole-assembly view renders unreadably small
+  if (Object.keys(SCORED).length) {{ focusInterface(); }} else {{ viewer.zoomTo(); }}
   viewer.render();
 }}
 if (document.readyState === "loading") {{
@@ -272,6 +308,33 @@ if (document.readyState === "loading") {{
 }}
 
 function resetView() {{ viewer.zoomTo(); viewer.render(); }}
+
+function interfaceSel() {{
+  const parts = Object.keys(SCORED).map(ch => ({{ chain: ch, resi: SCORED[ch] }}));
+  if (parts.length === 0) return null;
+  return parts.length === 1 ? parts[0] : {{ or: parts }};
+}}
+
+function focusInterface() {{
+  // An interface often sits on the rim of a complex, where zooming on the whole assembly
+  // leaves it small and off-centre. This recentres on the scored residues only.
+  const sel = interfaceSel();
+  if (!sel) return;
+  try {{
+    viewer.zoomTo(sel);
+    viewer.zoom(0.85);        // back off slightly so the surrounding fold stays visible
+  }} catch (e) {{
+    // if the compound selection is rejected, fall back to the largest single chain rather
+    // than leaving the button doing nothing
+    const chains = Object.keys(SCORED);
+    if (chains.length) {{
+      const big = chains.reduce((a, b) => SCORED[a].length >= SCORED[b].length ? a : b);
+      viewer.zoomTo({{ chain: big, resi: SCORED[big] }});
+      viewer.zoom(0.8);
+    }}
+  }}
+  viewer.render();
+}}
 
 function toggleChannel() {{
   // The whole argument of this figure: flip the colouring between what the model predicts
@@ -290,7 +353,7 @@ function toggleChannel() {{
   draw();
   if (surfaceOn) {{
     surf = viewer.addSurface($3Dmol.SurfaceType.VDW,
-      {{ opacity: 0.72, colorfunc: a => ramp(scoreOf(a)) }});
+      {{ opacity: 0.72, colorfunc: colorFor }});
   }}
   viewer.render();
 }}
@@ -306,7 +369,7 @@ function toggleSurface() {{
   surfaceOn = !surfaceOn;
   if (surfaceOn) {{
     surf = viewer.addSurface($3Dmol.SurfaceType.VDW,
-      {{ opacity: 0.72, colorfunc: a => ramp(scoreOf(a)) }});
+      {{ opacity: 0.72, colorfunc: colorFor }});
   }} else {{
     viewer.removeAllSurfaces();
   }}
@@ -332,6 +395,10 @@ def main() -> int:
                     help="rename a chain in the side panel, as CHAIN=NAME (e.g. A=CNNM2)")
     ap.add_argument("--chains", default=None,
                     help="comma-separated chains to render; default = chains in the CSV")
+    ap.add_argument("--chain-color", nargs="*", default=None,
+                    help="base colour per chain, as CHAIN=COLOUR (e.g. A=#8aa9c9 B=#c9a68a). "
+                         "Only SCORED residues take the heat ramp, so the two proteins stay "
+                         "distinguishable. Pass 'none' to colour everything by score.")
     ap.add_argument("--compare", type=Path, default=None,
                     help="the *_full.csv from infer_xgb.py; adds a colour toggle between "
                          "the model score and buried area, plus a rank-disagreement table")
@@ -424,6 +491,40 @@ def main() -> int:
     else:
         highlight_card = ""
 
+    # Chain base colours. Defaults are two desaturated hues chosen to sit well away from the
+    # white->amber->red heat ramp, so a chain colour is never mistaken for a score.
+    DEFAULT_CHAIN_COLORS = ["#7f9dc0", "#c0a07f", "#8fb08a", "#b08aa8"]
+    chain_colors: dict[str, str] = {}
+    if args.chain_color == ["none"]:
+        pass
+    elif args.chain_color:
+        for spec in args.chain_color:
+            k, v = spec.split("=", 1)
+            chain_colors[k.strip()] = v.strip()
+    else:
+        for i, ch in enumerate(sorted(keep)):
+            chain_colors[ch] = DEFAULT_CHAIN_COLORS[i % len(DEFAULT_CHAIN_COLORS)]
+
+    scored: dict[str, list[int]] = {}
+    for (ch, rid) in preds:
+        scored.setdefault(ch, []).append(int(rid))
+
+    if chain_colors:
+        swatches = "".join(
+            f'<div style="margin-top:4px"><span class="swatch" style="background:{col}">'
+            f'</span>{names.get(ch, "chain " + ch)}</div>'
+            for ch, col in sorted(chain_colors.items())
+        )
+        chain_legend = (
+            '<p class="note" style="margin-top:12px">Chains are coloured separately; only '
+            'the scored interface residues take the heat ramp above, on a thicker ribbon.'
+            '</p>' + swatches
+        )
+    else:
+        chain_legend = ('<p class="note" style="margin-top:10px">White means the residue is '
+                        'not at the interface and was never scored &mdash; not that it was '
+                        'scored and found unimportant.</p>')
+
     burial, contrast_card, channel_button, channel_caption = {}, "", "", ""
     if args.compare:
         burial, contrast_card = build_comparison(args.compare, keep, highlights, args.top)
@@ -442,8 +543,10 @@ def main() -> int:
         title=title, subtitle=subtitle, chain_panels=chain_panels,
         highlight_card=highlight_card, contrast_card=contrast_card,
         channel_button=channel_button, channel_caption=channel_caption,
+        chain_legend=chain_legend,
         pdb_json=json.dumps(pdb_text), highlights_json=json.dumps(highlights),
         burial_json=json.dumps(burial), cv_claim=args.cv_claim,
+        chain_colors_json=json.dumps(chain_colors), scored_json=json.dumps(scored),
     )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(html, encoding="utf-8")
