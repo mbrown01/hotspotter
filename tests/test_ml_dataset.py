@@ -1,4 +1,4 @@
-"""Unit tests for the pure Phase-2 helpers (no SKEMPI file, no xgboost needed)."""
+"""Unit tests for the pure dataset helpers (no SKEMPI file, no xgboost needed)."""
 
 from __future__ import annotations
 

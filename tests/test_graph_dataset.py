@@ -58,7 +58,7 @@ def mini_complex():
     interface = detect_interface(model, ("A",), ("B",))
     contacts = detect_contacts(interface)
 
-    # Build a Phase-1-shaped table from the interface, one row per residue, with every
+    # Build a pipeline-shaped table from the interface, one row per residue, with every
     # NODE_FEATURES column present. Values are distinct per row so column/row ordering
     # errors show up as wrong numbers rather than passing silently.
     rows = []
@@ -89,7 +89,7 @@ def test_feature_name_lists_are_well_formed():
     assert len(NODE_FEATURES) == len(set(NODE_FEATURES)), "duplicate node feature"
     assert len(EDGE_ATTR_NAMES) == len(EDGE_TYPES) + 2
     assert EDGE_ATTR_NAMES[-1] == "is_cross_interface"
-    # Phase-1 ranking outputs must never become model inputs (they'd leak the heuristic).
+    # Heuristic ranking outputs must never become model inputs (they'd leak the heuristic).
     for leaky in ("hotspot_score", "hotspot_rank", "naive_score", "naive_rank"):
         assert leaky not in NODE_FEATURES
 
