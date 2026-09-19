@@ -19,8 +19,8 @@ HOW THE COMPARISON IS KEPT HONEST
 
 Usage::
 
-    .\\.venv\\Scripts\\python.exe scripts\\run_ensemble.py --seeds 1    # quick pilot
-    .\\.venv\\Scripts\\python.exe scripts\\run_ensemble.py --seeds 5
+    .\\.venv\\Scripts\\python.exe experiments\\run_ensemble.py --seeds 1    # quick pilot
+    .\\.venv\\Scripts\\python.exe experiments\\run_ensemble.py --seeds 5
 """
 
 from __future__ import annotations

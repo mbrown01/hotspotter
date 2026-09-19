@@ -1,4 +1,4 @@
-"""Barnase-barstar 'hello world' — the whole Phase-1 pipeline on a known-answer complex.
+"""Barnase-barstar 'hello world' — the whole feature pipeline on a known-answer complex.
 
 Why 1BRS: barnase (an RNase) and barstar (its inhibitor) form the most-studied,
 most-measured protein interface in existence. It's small, and its interface is dominated

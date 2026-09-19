@@ -1,6 +1,6 @@
 """Build the full PyG graph dataset from SKEMPI and save it to disk.
 
-The graph-shaped counterpart of ``run_ml_baseline.py``. One graph per complex; nodes are
+The graph-shaped counterpart of ``build_features.py``. One graph per complex; nodes are
 interface residues; labels come from SKEMPI with everything untested masked out.
 
 The build is the expensive part (a structure download + full Phase-1 pipeline per complex),
@@ -8,9 +8,9 @@ so the result is pickled once and reloaded for every training run afterwards.
 
 Usage::
 
-    .\\.venv\\Scripts\\python.exe scripts\\build_graphs.py                     # alanine
-    .\\.venv\\Scripts\\python.exe scripts\\build_graphs.py --strategy max
-    .\\.venv\\Scripts\\python.exe scripts\\build_graphs.py --limit 20          # smoke test
+    .\\.venv\\Scripts\\python.exe experiments\\build_graphs.py                     # alanine
+    .\\.venv\\Scripts\\python.exe experiments\\build_graphs.py --strategy max
+    .\\.venv\\Scripts\\python.exe experiments\\build_graphs.py --limit 20          # smoke test
 """
 
 from __future__ import annotations
@@ -56,7 +56,8 @@ def main() -> int:
     try:
         import torch
     except ImportError:
-        print("ERROR: needs the gnn extras:  pip install -e .[gnn]", file=sys.stderr)
+        print("ERROR: needs the experiments extras:  pip install -e .[experiments]",
+              file=sys.stderr)
         return 2
 
     out = args.out or (REPO_ROOT / "data" / f"graphs_{args.strategy}.pt")

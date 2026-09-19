@@ -33,7 +33,7 @@ ONE SCALAR, NOT 320
 
 Usage::
 
-    .\\.venv\\Scripts\\python.exe scripts\\build_conservation_feature.py --strategy alanine
+    .\\.venv\\Scripts\\python.exe experiments\\build_conservation_feature.py --strategy alanine
 """
 
 from __future__ import annotations

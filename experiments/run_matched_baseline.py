@@ -23,7 +23,7 @@ WHY THIS EXISTS
 
 Usage::
 
-    .\\.venv\\Scripts\\python.exe scripts\\run_matched_baseline.py
+    .\\.venv\\Scripts\\python.exe experiments\\run_matched_baseline.py
 """
 
 from __future__ import annotations

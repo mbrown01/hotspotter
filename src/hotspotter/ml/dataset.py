@@ -1,4 +1,4 @@
-"""Build the Phase-2 training table from SKEMPI 2.0 + the Phase-1 pipeline.
+"""Build the training table from SKEMPI 2.0 + the feature pipeline.
 
 BIOLOGY / DATA NOTE — what SKEMPI is:
     SKEMPI 2.0 (Jankauskaite et al. 2019) tabulates ~7,000 mutations in protein complexes
@@ -6,13 +6,13 @@ BIOLOGY / DATA NOTE — what SKEMPI is:
     wild-type and the mutant. From the two Kd's we compute ΔΔG — how much the mutation
     changed binding free energy. That ΔΔG is the label: a big positive ΔΔG means "mutating
     this residue really disrupted binding," i.e. it was a hot spot. This is the ground
-    truth that lets us replace Phase 1's hand-set weights with a trained model.
+    truth that lets us replace the hand-set ranking weights with a trained model.
 
 THE PLAN (this module):
     1. parse SKEMPI rows -> (pdb_id, side_a_chains, side_b_chains, mutations, Kd_wt, Kd_mut, T)
     2. compute ΔΔG per row from the Kd's (real math, implemented below)
-    3. for each complex, run the Phase-1 pipeline ONCE and cache its per-residue table
-    4. for each mutated residue, pull its Phase-1 feature row and attach the ΔΔG label
+    3. for each complex, run the feature pipeline ONCE and cache its per-residue table
+    4. for each mutated residue, pull its feature row and attach the ΔΔG label
     5. hand back a tidy (features + label + group) DataFrame for train.py
 
 THE TWO THINGS WE MUST NOT GET WRONG (both handled here):
@@ -23,11 +23,14 @@ THE TWO THINGS WE MUST NOT GET WRONG (both handled here):
       class is rare. We expose a binary label via a ΔΔG threshold AND keep the continuous
       ΔΔG so you can do regression or weighted classification (train.py handles the weight).
 
-HONESTY: the ΔΔG math and mutation/PDB parsing below are real and unit-testable. The
-`build_dataset` orchestration is written but not yet run against the real file — SKEMPI's
-exact column names have changed between releases, so verify `SKEMPI_COLUMNS` on first run
-(one print of `df.columns` tells you). Structure-download failures for a few PDBs are
-expected; we skip and log them rather than crashing the whole sweep.
+SKEMPI's exact column names have changed between releases, so `SKEMPI_COLUMNS` is the one
+place to adjust if a future release moves them (one print of `df.columns` tells you).
+Structure-download failures for a few PDBs are expected; they are skipped and logged rather
+than crashing the whole sweep.
+
+Mutations are read from `Mutation(s)_PDB`, NOT `Mutation(s)_cleaned`: the latter uses
+SKEMPI's own renumbering, which does not match the author numbering in the deposited
+structure, so joining on it silently mislabels residues.
 """
 
 from __future__ import annotations
@@ -70,7 +73,7 @@ class Mutation:
     icode: str = " "
 
     def matches(self, rid: ResidueId) -> bool:
-        """True if a Phase-1 ResidueId is the residue this mutation refers to."""
+        """True if a pipeline ResidueId is the residue this mutation refers to."""
         return (rid.chain == self.chain and rid.resseq == self.resseq
                 and rid.icode.strip() == self.icode.strip()
                 and rid.one_letter == self.wt)
@@ -144,9 +147,9 @@ def build_dataset(
     cache_dir: str | Path | None = None,
     limit_complexes: int | None = None,
 ) -> pd.DataFrame:
-    """Build the labeled per-mutation feature table (the Phase-2 training set).
+    """Build the labeled per-mutation feature table (the training set).
 
-    For each SKEMPI row we compute ΔΔG, run the Phase-1 pipeline on that complex (cached so
+    For each SKEMPI row we compute ΔΔG, run the feature pipeline on that complex (cached so
     each structure is analyzed once), find the mutated residue's feature row, and attach the
     label. Rows whose structure won't download, whose residue can't be located, or whose
     Kd's are missing are skipped and counted (not fatal).
@@ -163,11 +166,8 @@ def build_dataset(
 
     Returns
     -------
-    DataFrame: one row per usable mutation = Phase-1 features + ['ddg', 'label',
+    DataFrame: one row per usable mutation = the feature columns + ['ddg', 'label',
     'complex_group', 'mutation']. Feed straight to train.train_baseline.
-
-    STATUS: written, not yet run against real SKEMPI. Expect to confirm column names and a
-    handful of chain-mapping edge cases on the first real pass.
     """
     df = load_skempi(skempi_csv)
     cols = SKEMPI_COLUMNS
@@ -250,7 +250,7 @@ def _to_float(value) -> float | None:
 
 
 def _find_residue_row(analysis: ComplexAnalysis, mutation: Mutation):
-    """Return the Phase-1 feature row (a Series) for the mutated residue, or None.
+    """Return the feature row (a Series) for the mutated residue, or None.
 
     Matches on chain + residue number + INSERTION CODE, then requires the wild-type letter
     to agree. Both checks matter:

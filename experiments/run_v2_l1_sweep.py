@@ -31,7 +31,7 @@ FOUR ARMS, ALL PAIRED ON IDENTICAL FOLDS
 
 Usage::
 
-    .\\.venv\\Scripts\\python.exe scripts\\run_v2_l1_sweep.py
+    .\\.venv\\Scripts\\python.exe experiments\\run_v2_l1_sweep.py
 """
 
 from __future__ import annotations

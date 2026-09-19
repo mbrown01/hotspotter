@@ -1,35 +1,35 @@
 # Data
 
-This folder is where structures and datasets live. **Contents are gitignored** (they're
-large and freely re-downloadable) — only this README is tracked.
+Everything in this folder is a build product or a third-party download, so **the contents
+are gitignored** — only this README is tracked. Nothing here is required to read the code;
+it is required to re-run it.
 
 ```
 data/
-  raw/        structures downloaded from RCSB PDB / AlphaFold DB (auto-created)
-  external/   large third-party datasets, e.g. SKEMPI 2.0 (Phase 2)
-  interim/    any intermediate cached artifacts
+  skempi_v2.csv               SKEMPI 2.0, downloaded (see below)
+  skempi_features_full.csv    built by scripts/build_features.py — the training table
+  split_alanine.json          the fixed cross-validation folds used by scripts/evaluate.py
+  raw/                        structures fetched from RCSB PDB / AlphaFold DB (auto-created)
 ```
 
-## Getting structures
+## SKEMPI 2.0
 
-```powershell
-# by PDB id (experimental) -> data/raw/1brs.pdb
-.\.venv\Scripts\python.exe scripts\fetch_structure.py --pdb 1BRS
-# by UniProt accession (AlphaFold DB monomer model)
-.\.venv\Scripts\python.exe scripts\fetch_structure.py --alphafold P69905
+~7,000 mutations in protein complexes with measured ΔΔG binding changes — the labels.
+Free single-file download from <https://life.bsc.es/pid/skempi2>; save it as
+`data/skempi_v2.csv`, which is where every script looks for it.
+
+## Structures
+
+```bash
+python scripts/fetch_structure.py --pdb 1BRS          # -> data/raw/1brs.pdb
+python scripts/fetch_structure.py --alphafold P69905  # AlphaFold DB monomer model
 ```
 
-Downloads also happen automatically the first time you analyze a PDB id
-(`analyze_complex("1BRS", ...)`), and are cached here.
+Downloads also happen automatically the first time a PDB id is analyzed
+(`analyze_complex("1BRS", ...)`) and are cached in `data/raw/`.
 
-## Phase-2 dataset (later)
-
-**SKEMPI 2.0** — ~7,000 mutations in protein complexes with measured ΔΔG binding changes,
-the labels for the ML scorer. Free single-file download from
-<https://life.bsc.es/pid/skempi2>. Put it in `data/external/` when we reach Phase 2.
-
-## Note on corporate networks
+## Corporate networks
 
 Downloads use the OS certificate store via `truststore`, so they work behind an
-intercepting proxy (e.g. a corporate network) that would otherwise cause
-`CERTIFICATE_VERIFY_FAILED`. No configuration needed.
+intercepting proxy that would otherwise cause `CERTIFICATE_VERIFY_FAILED`. No configuration
+needed.

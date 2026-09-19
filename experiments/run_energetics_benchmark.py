@@ -41,8 +41,8 @@ HOW THE COMPARISON IS KEPT HONEST
 
 Usage::
 
-    .\\.venv\\Scripts\\python.exe scripts\\run_energetics_benchmark.py
-    .\\.venv\\Scripts\\python.exe scripts\\run_energetics_benchmark.py --seeds 5
+    .\\.venv\\Scripts\\python.exe experiments\\run_energetics_benchmark.py
+    .\\.venv\\Scripts\\python.exe experiments\\run_energetics_benchmark.py --seeds 5
 """
 
 from __future__ import annotations

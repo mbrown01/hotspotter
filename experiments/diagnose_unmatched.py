@@ -22,7 +22,7 @@ HOW
 
 Usage::
 
-    .\\.venv\\Scripts\\python.exe scripts\\diagnose_unmatched.py
+    .\\.venv\\Scripts\\python.exe experiments\\diagnose_unmatched.py
 """
 
 from __future__ import annotations
@@ -79,7 +79,7 @@ def main() -> int:
     # deterministic per pair, so a pair with zero rows in the CSV is one that failed.
     built = REPO_ROOT / "data" / "skempi_features_full.csv"
     if not built.exists():
-        print(f"ERROR: need {built} first (run run_ml_baseline.py).", file=sys.stderr)
+        print(f"ERROR: need {built} first (run build_features.py).", file=sys.stderr)
         return 2
     import pandas as pd
     bdf = pd.read_csv(built)
