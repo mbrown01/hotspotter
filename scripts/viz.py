@@ -142,16 +142,18 @@ HTML = """<title>{title}</title>
   <div class="grid">
     <div>
       <div id="viewer"></div>
-      <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+      <div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
         <button class="btn" onclick="resetView()">Reset view</button>
         <button class="btn" onclick="toggleSurface()">Toggle surface</button>
         <button class="btn" onclick="toggleLabels()">Toggle labels</button>
+        {channel_button}
       </div>
+      {channel_caption}
     </div>
 
     <div>
       <div class="card">
-        <h2>Predicted probability</h2>
+        <h2 data-ramp-title>Predicted probability</h2>
         <div class="ramp"></div>
         <div class="ramp-lab"><span>0.0 not scored</span><span>1.0</span></div>
         <p class="note" style="margin-top:10px">
@@ -159,6 +161,8 @@ HTML = """<title>{title}</title>
           not that it was scored and found unimportant.
         </p>
       </div>
+
+      {contrast_card}
 
       {chain_panels}
 
@@ -181,6 +185,18 @@ HTML = """<title>{title}</title>
 <script>
 const PDB = {pdb_json};
 const HIGHLIGHTS = {highlights_json};
+// Burial channel: dSASA per residue, scaled 0-1 against the most-buried residue in THIS
+// interface. That is deliberately how a person eyeballing burial would rank them, so the
+// two colourings are a fair comparison rather than a rigged one.
+const BURIAL = {burial_json};
+const HAS_BURIAL = Object.keys(BURIAL).length > 0;
+let channel = "model";
+
+function scoreOf(a) {{
+  if (channel === "model") return a.b;             // B-factor column holds the model score
+  const v = BURIAL[a.chain + "_" + a.resi];
+  return v === undefined ? 0 : v;
+}}
 
 function ramp(t) {{
   t = Math.max(0, Math.min(1, t));
@@ -200,7 +216,7 @@ function addLabels() {{
     // 3Dmol signature is addLabel(text, options, SELECTION). Putting the selection inside
     // options.position silently creates nothing -- options.position wants {{x,y,z}}.
     viewer.addLabel(
-      h.label,
+      channel === "model" ? h.label : (h.label_burial || h.label),
       {{
         backgroundColor: h.color || "#333333", backgroundOpacity: 0.9,
         fontColor: "white", fontSize: 12, borderThickness: 0,
@@ -213,7 +229,7 @@ function addLabels() {{
 
 function draw() {{
   // everything: cartoon on the probability gradient
-  viewer.setStyle({{}}, {{ cartoon: {{ colorfunc: a => ramp(a.b), thickness: 0.4 }} }});
+  viewer.setStyle({{}}, {{ cartoon: {{ colorfunc: a => ramp(scoreOf(a)), thickness: 0.4 }} }});
 
   HIGHLIGHTS.forEach(h => {{
     const sel = {{ chain: h.chain, resi: h.resi }};
@@ -227,8 +243,8 @@ function draw() {{
     }} else {{
       // supporting residue: sticks, but keep the probability gradient
       viewer.setStyle(sel, {{
-        cartoon: {{ colorfunc: a => ramp(a.b) }},
-        stick: {{ radius: 0.20, colorfunc: a => ramp(a.b) }}
+        cartoon: {{ colorfunc: a => ramp(scoreOf(a)) }},
+        stick: {{ radius: 0.20, colorfunc: a => ramp(scoreOf(a)) }}
       }});
     }}
   }});
@@ -257,6 +273,28 @@ if (document.readyState === "loading") {{
 
 function resetView() {{ viewer.zoomTo(); viewer.render(); }}
 
+function toggleChannel() {{
+  // The whole argument of this figure: flip the colouring between what the model predicts
+  // and what buried surface area alone would say, WITHOUT moving the camera. Residues that
+  // change colour are the ones burial gets wrong.
+  channel = (channel === "model") ? "burial" : "model";
+  const isModel = channel === "model";
+  document.getElementById("chanbtn").textContent =
+    isModel ? "Colour: model score \\u2192 show burial" : "Colour: burial \\u2192 show model score";
+  document.getElementById("chanlab").textContent =
+    isModel ? "Coloured by MODEL SCORE" : "Coloured by BURIED SURFACE AREA (the naive baseline)";
+  document.getElementById("chanlab").style.color = isModel ? "#0a7d2e" : "#b45309";
+  const ramps = document.querySelectorAll("[data-ramp-title]");
+  ramps.forEach(e => {{ e.textContent = isModel ? "Predicted probability" : "Buried area (dSASA)"; }});
+  if (surfaceOn) {{ viewer.removeAllSurfaces(); }}
+  draw();
+  if (surfaceOn) {{
+    surf = viewer.addSurface($3Dmol.SurfaceType.VDW,
+      {{ opacity: 0.72, colorfunc: a => ramp(scoreOf(a)) }});
+  }}
+  viewer.render();
+}}
+
 function toggleLabels() {{
   labelsOn = !labelsOn;
   viewer.removeAllLabels();
@@ -268,7 +306,7 @@ function toggleSurface() {{
   surfaceOn = !surfaceOn;
   if (surfaceOn) {{
     surf = viewer.addSurface($3Dmol.SurfaceType.VDW,
-      {{ opacity: 0.72, colorfunc: a => ramp(a.b) }});
+      {{ opacity: 0.72, colorfunc: a => ramp(scoreOf(a)) }});
   }} else {{
     viewer.removeAllSurfaces();
   }}
@@ -294,6 +332,9 @@ def main() -> int:
                     help="rename a chain in the side panel, as CHAIN=NAME (e.g. A=CNNM2)")
     ap.add_argument("--chains", default=None,
                     help="comma-separated chains to render; default = chains in the CSV")
+    ap.add_argument("--compare", type=Path, default=None,
+                    help="the *_full.csv from infer_xgb.py; adds a colour toggle between "
+                         "the model score and buried area, plus a rank-disagreement table")
     ap.add_argument("--top", type=int, default=10, help="rows in the side panel")
     ap.add_argument("--title", default=None)
     ap.add_argument("--cv-claim", default="0.5076 ± 0.0531")
@@ -383,15 +424,26 @@ def main() -> int:
     else:
         highlight_card = ""
 
+    burial, contrast_card, channel_button, channel_caption = {}, "", "", ""
+    if args.compare:
+        burial, contrast_card = build_comparison(args.compare, keep, highlights, args.top)
+        if burial:
+            channel_button = ('<button class="btn" id="chanbtn" onclick="toggleChannel()">'
+                              'Colour: model score &rarr; show burial</button>')
+            channel_caption = ('<p class="note" id="chanlab" style="color:#0a7d2e;'
+                               'font-weight:600;margin-top:8px">'
+                               'Coloured by MODEL SCORE</p>')
+
     title = args.title or f"{pdb_path.stem.upper()} — predicted interface hot spots"
     subtitle = (f"{len(preds)} scored interface residues · {n_atoms} atoms rendered "
                 f"(chains {', '.join(sorted(keep))}) · colour = predicted probability")
 
     html = HTML.format(
         title=title, subtitle=subtitle, chain_panels=chain_panels,
-        highlight_card=highlight_card,
+        highlight_card=highlight_card, contrast_card=contrast_card,
+        channel_button=channel_button, channel_caption=channel_caption,
         pdb_json=json.dumps(pdb_text), highlights_json=json.dumps(highlights),
-        cv_claim=args.cv_claim,
+        burial_json=json.dumps(burial), cv_claim=args.cv_claim,
     )
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(html, encoding="utf-8")
@@ -407,6 +459,78 @@ def main() -> int:
             print(f"  highlighted   : {h['chain']}/{h['resname']}{h['resi']}  p={p}{col}")
     print(f"  wrote         : {args.out}  ({args.out.stat().st_size/1024:.0f} KB)")
     return 0
+
+
+def build_comparison(full_csv: Path, keep: set[str], highlights: list, top: int):
+    """Burial channel + the model-vs-burial rank table.
+
+    Takes the ``*_full.csv`` written by infer_xgb.py, which carries dsasa and both rankings
+    alongside the probability. Returns (burial map for the JS colouring, HTML card).
+
+    The card is sorted by how far the two rankings DISAGREE, largest first, because the
+    agreements are not the point -- if burial and the model ordered residues the same way
+    there would be no reason to build a model.
+    """
+    df = pd.read_csv(full_csv)
+    need = {"chain", "resseq", "resname", "dsasa", "model_rank", "naive_rank", "pred_prob"}
+    missing = need - set(df.columns)
+    if missing:
+        print(f"  WARNING: --compare file lacks {sorted(missing)}; skipping the "
+              f"burial comparison", file=sys.stderr)
+        return {}, ""
+
+    df = df[df["chain"].astype(str).isin(keep)].copy()
+    if df.empty:
+        return {}, ""
+
+    # scale burial against the most-buried residue at THIS interface
+    top_dsasa = float(df["dsasa"].max()) or 1.0
+    burial = {f'{r.chain}_{int(r.resseq)}': round(float(r.dsasa) / top_dsasa, 4)
+              for r in df.itertuples()}
+
+    # give each highlighted residue a burial-mode label so the callout does not keep
+    # showing a model probability while the structure is coloured by area
+    by_key = {(str(r.chain), int(r.resseq)): r for r in df.itertuples()}
+    for h in highlights:
+        r = by_key.get((h["chain"], h["resi"]))
+        if r is not None:
+            h["label_burial"] = (f'{h["resname"]}{h["resi"]}  '
+                                 f'{float(r.dsasa):.0f} A^2  (burial #{int(r.naive_rank)})')
+            h["model_rank"] = int(r.model_rank)
+            h["naive_rank"] = int(r.naive_rank)
+
+    df["moved"] = df["naive_rank"] - df["model_rank"]      # positive = model promoted it
+    n = len(df)
+    ordered = df.reindex(df["moved"].abs().sort_values(ascending=False).index).head(top)
+
+    rows = []
+    for r in ordered.itertuples():
+        mv = int(r.moved)
+        arrow = "&uarr;" if mv > 0 else ("&darr;" if mv < 0 else "&ndash;")
+        col = "#0a7d2e" if mv > 0 else ("#b45309" if mv < 0 else "var(--muted)")
+        rows.append(
+            f'<tr><td><span class="swatch" style="background:'
+            f'{_ramp_py(float(r.pred_prob))}"></span>{r.chain}/{r.resname}{int(r.resseq)}</td>'
+            f'<td class="p">{int(r.model_rank)}</td>'
+            f'<td class="p">{int(r.naive_rank)}</td>'
+            f'<td class="p" style="color:{col};font-weight:600">{arrow}{abs(mv)}</td></tr>'
+        )
+
+    card = (
+        '<div class="card" style="margin-top:14px">'
+        '<h2>Model rank vs burial rank</h2>'
+        '<table><tr><td class="p" style="color:var(--muted);font-size:11px">residue</td>'
+        '<td class="p" style="color:var(--muted);font-size:11px">model</td>'
+        '<td class="p" style="color:var(--muted);font-size:11px">burial</td>'
+        '<td class="p" style="color:var(--muted);font-size:11px">moved</td></tr>'
+        + "".join(rows) + '</table>'
+        f'<p class="note" style="margin:8px 0 0">Biggest disagreements first, of {n} '
+        'interface residues. Green = the model promoted a residue burial underrated; '
+        'amber = the model demoted a residue burial overrated. Use the colour toggle to '
+        'see the same structure scored both ways.</p>'
+        '</div>'
+    )
+    return burial, card
 
 
 def _ramp_py(t: float) -> str:
