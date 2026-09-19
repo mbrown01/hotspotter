@@ -22,7 +22,7 @@ data/
 Downloads also happen automatically the first time you analyze a PDB id
 (`analyze_complex("1BRS", ...)`), and are cached here.
 
-## Phase-2 dataset (later)
+## Phase-2 dataset
 
 **SKEMPI 2.0** — ~7,000 mutations in protein complexes with measured ΔΔG binding changes,
 the labels for the ML scorer. Free single-file download from
