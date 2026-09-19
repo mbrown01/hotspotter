@@ -53,9 +53,9 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from hotspotter.ml.dataset import parse_mutation  # noqa: E402
-from run_v2_benchmark import SHARED_NON_CHEMISTRY, V1_CHEMISTRY, collapse  # noqa: E402
+from hotspotter.ml.features import XGB_FEATURES, collapse  # noqa: E402
 
-FEATURES = SHARED_NON_CHEMISTRY + V1_CHEMISTRY
+FEATURES = list(XGB_FEATURES)
 XGB_KWARGS = dict(n_estimators=300, max_depth=4, learning_rate=0.05, subsample=0.8,
                   colsample_bytree=0.8, reg_alpha=50, eval_metric="aucpr", n_jobs=-1)
 

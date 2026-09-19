@@ -10,7 +10,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "src")); sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pandas as pd
-from hotspotter.energetics import energetics_for_complex, ENERGY_COLUMNS
+from energetics import energetics_for_complex, ENERGY_COLUMNS
 from hotspotter.io import fetch_pdb
 from hotspotter.ml.dataset import SKEMPI_COLUMNS, load_skempi, parse_pdb_field
 from hotspotter.pipeline import analyze_complex

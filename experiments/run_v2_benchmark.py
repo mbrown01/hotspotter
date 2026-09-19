@@ -32,11 +32,12 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from hotspotter.features_v2 import V2_CHEMISTRY_COLUMNS  # noqa: E402
+from features_v2 import V2_CHEMISTRY_COLUMNS  # noqa: E402
 from hotspotter.ml.graph_dataset import NODE_FEATURES  # noqa: E402
 
 #: V1's 26 inputs minus the two V2 removes (n_disulfides is gone from the V2 table).

@@ -50,7 +50,9 @@ def test_per_residue_counts_are_distinct_partners(salt_bridge_pair):
 
 
 def test_no_false_salt_bridge_when_far_apart():
-    from tests.conftest import build_structure
+    # conftest.py sits next to this file; pytest puts that directory on sys.path, so the
+    # bare module name works while "tests.conftest" does not (tests/ is not a package).
+    from conftest import build_structure
 
     residues = [
         ("A", "ARG", 1, {"CA": (0, 0, 0), "NH1": (1, 0, 0)}),

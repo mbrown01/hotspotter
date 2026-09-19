@@ -1,10 +1,16 @@
-"""Smoke-run the Phase-2 baseline: SKEMPI -> features -> XGBoost, on a few complexes.
+"""Build the training table: SKEMPI 2.0 -> structures -> per-residue features -> labels.
 
-This is the FIRST real run of the Phase-2 path, so it is deliberately small
-(``--limit`` complexes) and deliberately loud: the point is to surface column-mapping,
-chain-mapping, and residue-matching bugs cheaply, not to produce a headline number.
+This is the data-processing entry point. It reads SKEMPI, downloads each complex, runs the
+Phase-1 feature pipeline over every interface, joins measured ddG onto the matching residue,
+and writes ``data/skempi_features_full.csv`` -- the input to every model and every
+evaluation in the repo.
 
-Reported metrics, and why all three matter together:
+The full run downloads a few hundred PDB entries and takes hours; ``--limit`` caps the
+number of complexes for a quick check, and ``--reuse`` skips straight to scoring an existing
+table. The output is deliberately loud, because the failure mode that matters here is silent
+mis-joining of a mutation onto the wrong residue rather than an outright crash.
+
+It also prints a first-pass baseline, where all three numbers matter together:
 
     positive class rate   the fraction of rows labeled disruptive. PR-AUC's random-chance
                           floor EQUALS this number, so a PR-AUC is uninterpretable without
@@ -16,8 +22,9 @@ Reported metrics, and why all three matter together:
 
 Usage::
 
-    .\\.venv\\Scripts\\python.exe scripts\\run_ml_baseline.py
-    .\\.venv\\Scripts\\python.exe scripts\\run_ml_baseline.py --limit 50
+    .\\.venv\\Scripts\\python.exe scripts\\build_features.py --limit 20   # quick check
+    .\\.venv\\Scripts\\python.exe scripts\\build_features.py              # full build
+    .\\.venv\\Scripts\\python.exe scripts\\build_features.py --reuse      # score existing
 """
 
 from __future__ import annotations
@@ -28,9 +35,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from hotspotter.ml.dataset import build_dataset          # noqa: E402
-from hotspotter.ml.train import select_features, train_baseline  # noqa: E402
+from hotspotter.ml.dataset import build_dataset                      # noqa: E402
+from hotspotter.ml.train import select_features, train_baseline      # noqa: E402
 
 DEFAULT_CSV = REPO_ROOT / "data" / "skempi_v2.csv"
 
