@@ -4,9 +4,6 @@ Predicts which residues at a protein–protein interface are **load-bearing** �
 whose mutation collapses binding affinity. Ranks interface residues from a single structure
 using XGBoost over 25 engineered geometric and chemical features, trained on SKEMPI 2.0.
 
-The premise: *buried ≠ load-bearing*. Buried surface area is the usual proxy, and it is
-wrong often enough to matter.
-
 ## Results
 
 1,540 alanine-scanned residues across 172 complexes (SKEMPI 2.0, ΔΔG ≥ 2.0 kcal/mol = hot).
