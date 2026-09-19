@@ -24,7 +24,7 @@ from Bio.PDB import NeighborSearch
 
 from hotspotter.constants import Cutoffs
 from hotspotter.interface import Interface
-from hotspotter.io import ResidueId, is_amino_acid, residue_id
+from hotspotter.io import ResidueId, is_amino_acid
 from hotspotter.features.geometry import distance
 
 
