@@ -8,7 +8,7 @@ geometric and chemical features, trained on SKEMPI 2.0.
 
 ## Results
 
-1,540 alanine-scanned residues across 172 complexes (SKEMPI 2.0, ΔΔG ≥ 2.0 kcal/mol = hot).
+1,540 alanine-scanned residues across 172 complexes (SKEMPI 2.0, ΔΔG ≥ 2.0 kcal/mol = hot <sup>3</sup>).
 Cross-validation is **grouped by complex**, so no residue is scored by a model that has seen
 another residue from the same interface. 5 folds × 5 seeds.
 
@@ -22,6 +22,7 @@ another residue from the same interface. 5 folds × 5 seeds.
 
 <sup>1</sup> hot > 2.0 kcal/mol, non-hot < 0.4, grey zone dropped — the filtering used by published methods.
 <sup>2</sup> fraction of complexes whose top-*k* ranked residues contain a true hot spot.
+<sup>3</sup> at the looser 1.5 kcal/mol definition some papers use, PR-AUC is 0.5793 against a 0.4754 baseline — a larger number but a smaller lift.
 
 **Split audit.** `scripts/audit_splits.py` holds the data, features, model and seeds fixed
 and varies only the fold grouping. The three protocols answer three different questions,
