@@ -1,8 +1,10 @@
 # HotSpotter
 
 Predicts which residues at a protein–protein interface are **load-bearing** — the hot spots
-whose mutation collapses binding affinity. Ranks interface residues from a single structure
-using XGBoost over 25 engineered geometric and chemical features, trained on SKEMPI 2.0.
+whose mutation collapses binding affinity. Finding them experimentally means mutating and
+re-measuring one residue at a time, so a reliable computational ranking is worth real bench
+time. Ranks interface residues from a single structure using XGBoost over 25 engineered
+geometric and chemical features, trained on SKEMPI 2.0.
 
 ## Results
 
