@@ -12,6 +12,13 @@ only the fold assignment changing.
                             many times) cannot straddle the split either. Grouping by
                             pdb id does not catch that on its own.
 
+None of the three is the "true" number; they bracket different deployment cases. A homolog
+in the training set is the model transferring, not cheating, so the identity-clustered row
+is a floor rather than a correction. And because SKEMPI scans only part of most interfaces
+(the coverage section below measures how much), ranking the unmeasured remainder of a
+partly-scanned interface is itself a real query -- which is what the random split
+estimates.
+
 The naive buried-area baseline is reported under every regime as a control: it is not
 trained, so it should not move. If it does, the difference is fold composition, not
 leakage.
@@ -168,6 +175,44 @@ def cross_validate(df, folds, seeds):
     return pf, oof.mean(0)
 
 
+# --- how much of an interface does SKEMPI actually measure? ----------------------------
+def coverage(df, raw_dir: Path, limit: int):
+    """Labeled residues as a fraction of the full interface, per complex.
+
+    This is the number that decides whether the random-residue split describes a real
+    query. If SKEMPI scanned whole interfaces, a complex in the dataset would need no
+    prediction at all; it scans a minority of most of them, so the remainder is the query.
+    """
+    from hotspotter.interface import detect_interface
+    from hotspotter.io import get_model, load_structure
+
+    rows = []
+    for pid in sorted(df.pdb_id.unique()):
+        sub = df[df.pdb_id == pid]
+        a = tuple(sorted(sub[sub.side == "A"].chain.unique()))
+        b = tuple(sorted(sub[sub.side == "B"].chain.unique()))
+        path = raw_dir / f"{pid.lower()}.pdb"
+        if not a or not b or not path.exists():
+            continue
+        try:
+            model = get_model(load_structure(path, structure_id=pid))
+            n_iface = len(detect_interface(model, a, b))
+        except Exception:
+            continue
+        if n_iface:
+            n_lab = len(sub.drop_duplicates(["chain", "resseq"]))
+            rows.append((n_iface, min(n_lab / n_iface, 1.0)))
+        if len(rows) >= limit:
+            break
+    if not rows:
+        return None
+    size = np.array([r[0] for r in rows])
+    frac = np.array([r[1] for r in rows])
+    return dict(n=len(rows), median_interface=np.median(size),
+                q=np.percentile(frac, [25, 50, 75]),
+                full=int((frac >= 0.95).sum()), half=int((frac < 0.5).sum()))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -182,6 +227,9 @@ def main() -> int:
     ap.add_argument("--threshold", type=float, default=2.0)
     ap.add_argument("--seeds", type=int, default=5)
     ap.add_argument("--folds", type=int, default=5)
+    ap.add_argument("--coverage", type=int, default=60,
+                    help="complexes to sample when measuring SKEMPI interface coverage; "
+                         "0 skips it")
     args = ap.parse_args()
 
     if not args.csv.exists():
@@ -207,7 +255,7 @@ def main() -> int:
           f"{args.folds} folds")
 
     regimes: list[tuple[str, int, object]] = [
-        ("random residue split [leaky]", len(ids), None),
+        ("random residue split [partial scan]", len(ids), None),
         ("group by complex [reported]", len(ids), pdb),
     ]
 
@@ -238,6 +286,22 @@ def main() -> int:
         print(f"  {name:<34}{n_groups:>8}{pf.mean():>10.4f}"
               f"{pf.std(axis=1).mean():>8.4f}{roc_auc_score(y, oof):>8.4f}"
               f"{npf.mean():>10.4f}{hit[3][0]:>8.1%}")
+
+    if args.coverage:
+        print('\n' + "-" * 84)
+        print("  SKEMPI INTERFACE COVERAGE  (is a complex in the dataset already answered?)")
+        print("-" * 84)
+        cov = coverage(df, args.raw, args.coverage)
+        if cov is None:
+            print("  no structures available to measure")
+        else:
+            lo, mid, hi = cov["q"]
+            print(f"  {cov['n']} complexes sampled | median interface "
+                  f"{cov['median_interface']:.0f} residues")
+            print(f"  fraction of the interface SKEMPI measures: "
+                  f"median {mid:.0%} (IQR {lo:.0%}-{hi:.0%})")
+            print(f"  fully scanned (>=95%): {cov['full']}/{cov['n']} | "
+                  f"under half scanned: {cov['half']}/{cov['n']}")
 
     ref = scores["group by complex [reported]"]
     print("-" * 84)
