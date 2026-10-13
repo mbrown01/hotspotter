@@ -21,6 +21,13 @@ another residue from the same interface. 5 folds × 5 seeds.
 <sup>1</sup> hot > 2.0 kcal/mol, non-hot < 0.4, grey zone dropped — the filtering used by published methods.
 <sup>2</sup> fraction of complexes whose top-*k* ranked residues contain a true hot spot.
 
+**Split audit.** `scripts/audit_splits.py` measures what the grouping is worth, holding the
+data, features, model and seeds fixed. A random residue-level split reports 0.5496 PR-AUC
+(+4.8%). Grouping more strictly — by ≥70% chain-identity cluster rather than by PDB id,
+which collapses the 172 complexes to 75 — reports 0.5033 (−4.1%), because SKEMPI deposits
+the same pair many times. The naive baseline moves by less than 0.007 under every regime,
+which is the control.
+
 **3M62 (Ufd2–Rad23).** Tyr97 is the strongest hot spot in the interface (ΔΔG 4.48 kcal/mol)
 but only the 21st most buried of 33 interface residues. HotSpotter ranks it **#1**. The
 second-most-buried residue, Phe9, is not a hot spot at all (ΔΔG 0.99).
@@ -37,6 +44,7 @@ pip install -e .
 
 python scripts/run_demo.py                                  # end-to-end on barnase–barstar
 python scripts/evaluate.py                                  # reproduce the table above
+python scripts/audit_splits.py                              # what the fold grouping is worth
 python scripts/infer_xgb.py --pdb 3M62 --chains A,B         # rank one complex
 python scripts/viz.py --pdb 3M62 --chains A,B \
     --preds predictions/3m62_xgb_predictions.csv --out 3m62.html

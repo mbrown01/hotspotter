@@ -9,6 +9,7 @@ data/
   skempi_v2.csv               SKEMPI 2.0, downloaded (see below)
   skempi_features_full.csv    built by scripts/build_features.py — the training table
   split_alanine.json          the fixed cross-validation folds used by scripts/evaluate.py
+  chain_sequences.json        cached chain sequences for scripts/audit_splits.py
   raw/                        structures fetched from RCSB PDB / AlphaFold DB (auto-created)
 ```
 
