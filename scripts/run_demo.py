@@ -1,5 +1,11 @@
 """Barnase-barstar 'hello world' — the whole feature pipeline on a known-answer complex.
 
+THE RANKING PRINTED HERE IS THE TRANSPARENT BASELINE, not the trained model: a weighted
+sum of hand-set terms with a written reason per residue. The reported PR-AUC and hit
+rates belong to the XGBoost model in ``hotspotter.ml.train``; run
+``scripts/infer_xgb.py --pdb 1BRS --chains A,D`` for that one. This script exists to show
+that the features come out right, which is the thing the model is built on top of.
+
 Why 1BRS: barnase (an RNase) and barstar (its inhibitor) form the most-studied,
 most-measured protein interface in existence. It's small, and its interface is dominated
 by charged residues and salt bridges — the exact chemistry the tool exists to catch. If
@@ -26,7 +32,8 @@ from hotspotter.report import save_outputs, text_report  # noqa: E402
 
 
 def main() -> int:
-    print("Analyzing barnase-barstar (PDB 1BRS), chains A (barnase) vs D (barstar)...\n")
+    print("Analyzing barnase-barstar (PDB 1BRS), chains A (barnase) vs D (barstar).")
+    print("Ranking below is the transparent heuristic, not the trained model.\n")
     analysis = analyze_complex("1BRS", chains="A,D")
 
     print(text_report(analysis, top_n=10))

@@ -1,8 +1,8 @@
-"""Predict hot spots on one complex with the accepted tabular baseline (V1 + L1 XGBoost).
+"""Predict hot spots on one complex with the shipped model.
 
-WHY THIS EXISTS SEPARATELY FROM infer.py
-    ``infer.py`` runs the GNN ensemble. After the architecture search, the accepted model is
-    the simpler one: V1's 25 features with reg_alpha=50. This script is its inference path.
+WHY THIS EXISTS SEPARATELY FROM experiments/infer.py
+    That one runs the GNN, which tied the tabular model and was not kept. This is the
+    inference path for what ships: ``hotspotter.ml.train.accepted_scores``.
 
 THE HOLD-OUT RULE, ENFORCED
     The target complex is ALWAYS excluded from training, by pdb id, before a single tree is
@@ -21,6 +21,8 @@ Usage::
 
     .\\.venv\\Scripts\\python.exe scripts\\infer_xgb.py --pdb 1BRS --chains A,D \\
         --known A:87 A:102 A:59 A:27 D:39 D:35 D:29
+    .\\.venv\\Scripts\\python.exe scripts\\infer_xgb.py --pdb model.pdb --pdb-id 8F6D \\
+        --chains A,B
 """
 
 from __future__ import annotations
@@ -40,15 +42,14 @@ import pandas as pd  # noqa: E402
 from hotspotter.ml.dataset import parse_mutation  # noqa: E402
 from hotspotter.pipeline import analyze_complex  # noqa: E402
 from hotspotter.ml.features import XGB_FEATURES, collapse  # noqa: E402
+from hotspotter.ml.train import accepted_scores  # noqa: E402
 
 FEATURES = list(XGB_FEATURES)
 LABEL_RE = re.compile(r"^(?P<chain>.+)/(?P<resname>[A-Z]{3})(?P<resseq>-?\d+)(?P<icode>[A-Za-z]?)$")
 
 
-def train_model(csv: Path, exclude: set[str], strategy: str, threshold: float,
-                alpha: float, seed: int):
-    from xgboost import XGBClassifier
-
+def load_training_table(csv: Path, exclude: set[str], strategy: str, threshold: float):
+    """The training rows, with the target complex removed by PDB id."""
     df = pd.read_csv(csv)
     df["mut"] = df["mutation"].astype(str).map(lambda m: parse_mutation(m).mut)
     df["pdb_id"] = df["complex_group"]
@@ -56,29 +57,23 @@ def train_model(csv: Path, exclude: set[str], strategy: str, threshold: float,
     df = df[~df["pdb_id"].str.upper().isin(exclude)]
     after = df["pdb_id"].nunique()
     df = collapse(df, strategy, threshold)
-
-    X = df[FEATURES].fillna(df[FEATURES].median(numeric_only=True)).fillna(0.0)
-    y = df["label"].astype(int).values
-    pos = max(1, int(y.sum()))
-    model = XGBClassifier(
-        n_estimators=300, max_depth=4, learning_rate=0.05, subsample=0.8,
-        colsample_bytree=0.8, reg_alpha=alpha, scale_pos_weight=(len(y) - y.sum()) / pos,
-        eval_metric="aucpr", random_state=seed, n_jobs=-1,
-    ).fit(X, y)
-    return model, dict(complexes_before=before, complexes_after=after,
-                       rows=len(df), positives=int(y.sum()))
+    return df, dict(complexes_before=before, complexes_after=after,
+                    rows=len(df), positives=int(df["label"].sum()))
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--pdb", required=True)
+    ap.add_argument("--pdb", required=True, help="4-character PDB id, or a path to a file")
+    ap.add_argument("--pdb-id", default=None,
+                    help="the PDB entry this structure IS, when --pdb is a file path. "
+                         "Sets both the training hold-out and the ConSurf lookup; "
+                         "without it both are guessed from the filename.")
     ap.add_argument("--chains", required=True)
-    ap.add_argument("--csv", type=Path, default=REPO_ROOT / "data" / "skempi_features_full.csv")
+    ap.add_argument("--csv", type=Path, default=REPO_ROOT / "data" / "skempi_features.csv")
     ap.add_argument("--strategy", choices=("alanine", "max"), default="alanine")
     ap.add_argument("--threshold", type=float, default=2.0)
-    ap.add_argument("--alpha", type=float, default=50.0)
-    ap.add_argument("--seeds", type=int, default=5,
-                    help="ensemble this many XGBoost seeds and average")
+    ap.add_argument("--seeds", type=int, default=3,
+                    help="average the shipped model's prediction over this many seeds")
     ap.add_argument("--interface-cutoff", type=float, default=None)
     ap.add_argument("--known", nargs="*", default=[],
                     help="experimentally known hot spots, as CHAIN:RESID")
@@ -90,29 +85,43 @@ def main() -> int:
     tag = Path(args.pdb).stem.lower()
     out = args.out or (REPO_ROOT / "predictions" / f"{tag}_xgb_predictions.csv")
 
-    exclude = {args.pdb.upper()}
+    # --pdb accepts a FILE PATH as well as an id (see `tag` above). Excluding the raw
+    # argument would leave "DATA/RAW/1BRS.PDB" in the hold-out set, matching no complex
+    # group, and the model would then be trained on the target's own labels.
+    #
+    # Guessing the id from the filename is right for data/raw/1brs.pdb and wrong for
+    # anything else: model.pdb would hold out "MODE", match nothing, and then ask
+    # ConSurf-DB about an entry called MODE. --pdb-id says it outright.
+    pdb_id = (args.pdb_id or Path(args.pdb).stem).upper()[:4]
+    exclude = {pdb_id}
     print("=" * 78)
-    print(f"  XGBoost (V1 + L1) INFERENCE  |  {args.pdb}  |  {side_a} vs {side_b}")
+    print(f"  HOTSPOTTER INFERENCE  |  {args.pdb}  |  {side_a} vs {side_b}")
     print("=" * 78)
 
-    models, info = [], None
-    for s in range(args.seeds):
-        m, info = train_model(args.csv, exclude, args.strategy, args.threshold,
-                              args.alpha, s)
-        models.append(m)
+    train_df, info = load_training_table(args.csv, exclude, args.strategy, args.threshold)
     print(f"  HELD OUT           : {sorted(exclude)}  "
           f"({info['complexes_before']} -> {info['complexes_after']} complexes)")
     print(f"  trained on         : {info['rows']} residues, {info['positives']} hot spots")
-    print(f"  reg_alpha {args.alpha} | {args.seeds}-seed ensemble | strategy {args.strategy}")
+    print(f"  shipped model      | {args.seeds} seeds averaged "
+          f"| strategy {args.strategy}")
 
+    # pdb_id= keeps conservation alive for a local file: without it every cons_score is
+    # NaN, and the model is asked to predict with a feature it was trained to rely on.
     analysis = analyze_complex(args.pdb, chains=(side_a, side_b),
-                               interface_cutoff=args.interface_cutoff)
+                               interface_cutoff=args.interface_cutoff,
+                               pdb_id=pdb_id)
     t = analysis.table.copy()
-    X = t[FEATURES].fillna(t[FEATURES].median(numeric_only=True)).fillna(0.0)
-    P = np.vstack([m.predict_proba(X)[:, 1] for m in models])
-
-    t["pred_prob"] = P.mean(0)
-    t["pred_std"] = P.std(0)
+    # One call into the single definition of the shipped model, so this path cannot
+    # drift from the one that produced the reported numbers. NaN goes straight through:
+    # XGBoost branches on missingness, which matters most here, because a docked or
+    # novel complex has no ConSurf-DB entry and arrives with cons_score NaN throughout.
+    t["pred_prob"] = accepted_scores(train_df, t, FEATURES, seeds=args.seeds)
+    # There is deliberately no per-seed standard deviation column. It looked like an
+    # error bar and was not one: for telling right predictions from wrong it scored AUC
+    # 0.58, against 0.70 for |p - 0.5|, the distance from the decision boundary that is
+    # already on screen. Added on top of |p - 0.5| it contributed nothing (p = 1.0),
+    # because it mostly restates the Bernoulli variance p(1-p). The probability is the
+    # confidence.
     t["res_id"] = t["resseq"].astype(int)
     t["res_name"] = t["resname"]
     t = t.sort_values("pred_prob", ascending=False).reset_index(drop=True)
@@ -128,11 +137,11 @@ def main() -> int:
           f"  (cutoff {args.interface_cutoff or 5.0} A)")
 
     print(f"\n  TOP 10 OVERALL")
-    print(f"    {'rank':>4}  {'residue':<12}{'prob':>8}{'+/-':>8}{'naive rank':>12}")
-    print("    " + "-" * 46)
+    print(f"    {'rank':>4}  {'residue':<12}{'prob':>8}{'naive rank':>12}")
+    print("    " + "-" * 38)
     for r in t.head(10).itertuples():
         print(f"    {r.model_rank:>4}  {r.chain}/{r.res_name}{r.res_id:<7}"
-              f"{r.pred_prob:>8.4f}{r.pred_std:>8.4f}{r.naive_rank:>12}")
+              f"{r.pred_prob:>8.4f}{r.naive_rank:>12}")
 
     if args.known:
         print(f"\n  KNOWN HOT SPOTS — model rank vs naive buriedness rank")

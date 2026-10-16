@@ -3,6 +3,12 @@
 Runs the full feature pipeline and writes the feature table, contact list, and report to
 ``outputs/`` (or a directory you choose). Designed to also be scriptable in batch for the
 SKEMPI sweep.
+
+THE RANKING THIS PRINTS IS THE HAND-SET HEURISTIC (``ranking.py``), not the trained
+model. The two answer the same question differently: the heuristic weights are chosen
+and explainable, the model's are fitted to measured ΔΔG and are what the reported
+numbers describe. For the model's ranking of one complex, use ``scripts/infer_xgb.py``,
+which also holds that complex out of training first.
 """
 
 from __future__ import annotations
@@ -19,7 +25,8 @@ from hotspotter.report import save_outputs, text_report
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="hotspotter",
-        description="Rank protein-protein interface residues by predicted hot-spot importance.",
+        description="Extract interface features and rank residues with the transparent "
+                    "weighted heuristic. For the trained model, use scripts/infer_xgb.py.",
     )
     src = p.add_mutually_exclusive_group(required=True)
     src.add_argument("--pdb", help="4-character PDB id to download (e.g. 1BRS).")

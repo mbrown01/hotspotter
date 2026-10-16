@@ -2,20 +2,20 @@
 
 This module encodes the project's central thesis in code, side by side:
 
-  NAIVE baseline (``naive_burial_score``):  rank by buried surface area alone. This is the
-      heuristic that sent Sandra to Y96 — "most buried must matter most." We keep it so we
-      can always show what the obvious approach would have said.
+  NAIVE baseline (``naive_burial_score``):  rank by buried surface area alone — "most
+      buried must matter most." We keep it so we can always show what the obvious
+      approach would have said.
 
   HOT-SPOT heuristic (``hotspot_score``):  a transparent weighted sum that adds interaction
       chemistry (salt bridges heavily), interface centrality (O-ring), conservation (when
       available), and residue identity on top of burial. Every residue also gets a plain-
       English ``reasoning`` string listing *why* it scored where it did.
 
-IMPORTANT (honesty): these weights are hand-set and interpretable, NOT learned. That's the
-point of the heuristic — a sensible, explainable baseline. The trained model replaces this fixed
-scoring with a model trained on SKEMPI's measured ΔΔG labels, and the ablation there tells
-us which of these features actually carry the signal. Until then, treat the ranking as a
-well-reasoned hypothesis generator, not ground truth.
+IMPORTANT: these weights are hand-set and interpretable, NOT learned, and this is NOT the
+model the reported numbers come from. ``hotspotter.ml.train.accepted_scores`` is — XGBoost
+fitted on SKEMPI's measured ΔΔG. The heuristic stays because an explainable baseline with
+a written reason per residue is worth having next to a learned one, not because it scores
+as well. Treat its ranking as a hypothesis generator.
 """
 
 from __future__ import annotations
@@ -81,8 +81,13 @@ def hotspot_score(df: pd.DataFrame, weights: Weights | None = None) -> pd.DataFr
     # Normalized-in-interface helpers (chemistry counts are already comparable as-is).
     norm_burial = _minmax(out["dsasa"]) if "dsasa" in out else pd.Series(0.0, index=out.index)
     centrality = out["centrality"] if "centrality" in out else pd.Series(0.0, index=out.index)
-    if "conservation" in out and out["conservation"].notna().any():
-        norm_cons = _minmax(out["conservation"].astype(float))
+    # The column is cons_score, and ConSurf's scale RUNS BACKWARDS: a conserved position
+    # scores negative (grade 9 is about -1.5), a variable one positive. Negate before
+    # normalising, or the weight rewards the least conserved residues. Chains with no
+    # ConSurf entry are NaN -> 0 after normalising, i.e. the term abstains rather than
+    # penalising them.
+    if "cons_score" in out and out["cons_score"].notna().any():
+        norm_cons = _minmax(-out["cons_score"].astype(float)).fillna(0.0)
     else:
         norm_cons = pd.Series(0.0, index=out.index)
 
