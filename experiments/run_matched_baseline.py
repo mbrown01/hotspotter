@@ -41,8 +41,9 @@ import pandas as pd  # noqa: E402
 
 from hotspotter.ml.dataset import parse_mutation  # noqa: E402
 from hotspotter.ml.graph_dataset import DDG_HOTSPOT_THRESHOLD, NODE_FEATURES  # noqa: E402
+from hotspotter.ml.train import make_xgb  # noqa: E402
 
-DEFAULT_FEATURES = REPO_ROOT / "data" / "skempi_features_full.csv"
+DEFAULT_FEATURES = REPO_ROOT / "data" / "skempi_features.csv"
 DEFAULT_GRAPHS = REPO_ROOT / "data" / "graphs_alanine.pt"
 
 
@@ -107,6 +108,10 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--split-out", type=Path, default=None,
                     help="default: data/split_<strategy>.json")
+    ap.add_argument("--overwrite", action="store_true",
+                    help="replace an existing split file. data/split_alanine.json is "
+                         "committed and every reported number is computed on its folds, "
+                         "so overwriting it is a deliberate act.")
     args = ap.parse_args()
     if args.graphs is None:
         args.graphs = REPO_ROOT / "data" / f"graphs_{args.strategy}.pt"
@@ -117,10 +122,14 @@ def main() -> int:
         if not p.exists():
             print(f"ERROR: missing {p}", file=sys.stderr)
             return 2
+    if args.split_out.exists() and not args.overwrite:
+        print(f"ERROR: {args.split_out} already exists. Every reported number is "
+              f"computed on its folds, so pass --overwrite to replace it.",
+              file=sys.stderr)
+        return 2
 
     from sklearn.metrics import average_precision_score, roc_auc_score
     from sklearn.model_selection import GroupKFold, GroupShuffleSplit
-    from xgboost import XGBClassifier
 
     print("=" * 78)
     print(f"  MATCHED BASELINE  |  strategy={args.strategy}, "
@@ -153,6 +162,11 @@ def main() -> int:
 
     # ---- train -------------------------------------------------------------------------
     features = list(NODE_FEATURES)   # the same 26 inputs the GNN nodes carry
+    # NOT prepare_matrix, and that is the point: this arm has to see exactly what the GNN
+    # sees, and graph_dataset.complex_to_data fills missing values rather than passing
+    # NaN through, because the standardizer cannot take NaN. Letting XGBoost branch on
+    # missingness here would hand it an advantage the GNN cannot have, which is the one
+    # thing a matched baseline must not do.
     X = df[features].fillna(df[features].median(numeric_only=True)).fillna(0.0)
     y = df["label"].astype(int).values
     groups = df["complex_group"].values
@@ -161,14 +175,7 @@ def main() -> int:
                                  random_state=args.seed)
     tr, te = next(splitter.split(X, y, groups))
 
-    pos = max(1, int(y[tr].sum()))
-    spw = int(len(tr) - y[tr].sum()) / pos
-    model = XGBClassifier(
-        n_estimators=300, max_depth=4, learning_rate=0.05,
-        subsample=0.8, colsample_bytree=0.8, scale_pos_weight=spw,
-        eval_metric="aucpr", random_state=args.seed, n_jobs=-1,
-    )
-    model.fit(X.iloc[tr], y[tr])
+    model = make_xgb(y[tr], args.seed).fit(X.iloc[tr], y[tr])
     proba = model.predict_proba(X.iloc[te])[:, 1]
 
     naive = df.iloc[te]["dsasa"].fillna(0.0).values
@@ -187,14 +194,7 @@ def main() -> int:
             "train_complexes": sorted(set(groups[ctr])),
             "test_complexes": sorted(set(groups[cte])),
         })
-        p = max(1, int(y[ctr].sum()))
-        m = XGBClassifier(
-            n_estimators=300, max_depth=4, learning_rate=0.05,
-            subsample=0.8, colsample_bytree=0.8,
-            scale_pos_weight=int(len(ctr) - y[ctr].sum()) / p,
-            eval_metric="aucpr", random_state=args.seed, n_jobs=-1,
-        )
-        m.fit(X.iloc[ctr], y[ctr])
+        m = make_xgb(y[ctr], args.seed).fit(X.iloc[ctr], y[ctr])
         cv.append(average_precision_score(y[cte], m.predict_proba(X.iloc[cte])[:, 1]))
         cv_naive.append(average_precision_score(y[cte], df.iloc[cte]["dsasa"].fillna(0).values))
 

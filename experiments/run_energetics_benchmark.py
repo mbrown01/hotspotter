@@ -1,14 +1,14 @@
 """Does implicit-solvent energetics beat the geometric proxies it is meant to replace?
 
 THE QUESTION
-    Every V1 feature is a geometric stand-in for energy: buried area, relative accessibility,
+    Every shipped feature is a geometric stand-in for energy: buried area, accessibility,
     packing density. They work because burial and binding energy are correlated, not because
     anything thermodynamic was computed. data/energetics.csv adds terms that ARE energetic --
     Coulomb interaction, Born desolvation, and a nonpolar surface term -- from real per-atom
     AMBER charges and PROPKA protonation states.
 
-    Eight previous feature additions failed to beat V1+L1. This asks whether real physics
-    does what more geometry could not.
+    Eight previous feature additions failed to beat the shipped feature set. This asks
+    whether real physics does what more geometry could not.
 
 WHY THERE ARE THREE ARMS AND NOT TWO
     e_nonpolar is defined as -gamma * dsasa. It is a linear rescale of a column the model
@@ -16,7 +16,7 @@ WHY THERE ARE THREE ARMS AND NOT TWO
     Handing the model all six terms and then reporting a win would let two redundant columns
     stand next to four real ones and share the credit.
 
-        baseline    V1 + L1
+        baseline    the 30 shipped features
         +energy     all six energetics columns
         +novel      only the four that are not functions of dsasa:
                     e_coulomb, e_desolvation, charge_buried, n_charged_contacts
@@ -60,16 +60,14 @@ import pandas as pd  # noqa: E402
 
 from energetics import ENERGY_COLUMNS  # noqa: E402
 from hotspotter.ml.dataset import parse_mutation  # noqa: E402
-from hotspotter.ml.features import XGB_FEATURES, collapse  # noqa: E402
+from hotspotter.ml.features import XGB_FEATURES, collapse, prepare_matrix  # noqa: E402
+from hotspotter.ml.train import make_xgb  # noqa: E402
 
 BASE_FEATURES = list(XGB_FEATURES)
 
 #: The energetics columns that are NOT a deterministic function of dsasa.
 NOVEL_ENERGY = ["e_coulomb", "e_desolvation", "charge_buried", "n_charged_contacts"]
 
-XGB_KWARGS = dict(n_estimators=300, max_depth=4, learning_rate=0.05,
-                  subsample=0.8, colsample_bytree=0.8, reg_alpha=50,
-                  eval_metric="aucpr", n_jobs=-1)
 
 
 def _norm_icode(s: pd.Series) -> pd.Series:
@@ -85,9 +83,10 @@ def oof_predictions(df: pd.DataFrame, features: list[str], seeds: list[int],
     and a per-fold mean cannot be re-sliced after the fact.
     """
     from sklearn.model_selection import GroupKFold
-    from xgboost import XGBClassifier
 
-    X = df[features].fillna(df[features].median(numeric_only=True)).fillna(0.0)
+    # NaN passed through deliberately -- XGBoost learns a default branch per split.
+    # A median fill here both leaks held-out medians and discards the MNAR signal.
+    X, _ = prepare_matrix(df, features, model="xgboost")
     y = df["label"].astype(int).values
     groups = df["pdb_id"].values
     folds = list(GroupKFold(n_splits=n_splits).split(X, y, groups))
@@ -95,10 +94,7 @@ def oof_predictions(df: pd.DataFrame, features: list[str], seeds: list[int],
     oof = np.zeros((len(seeds), len(df)))
     for si, seed in enumerate(seeds):
         for tr, te in folds:
-            pos = max(1, int(y[tr].sum()))
-            m = XGBClassifier(scale_pos_weight=(len(tr) - y[tr].sum()) / pos,
-                              random_state=seed, **XGB_KWARGS)
-            m.fit(X.iloc[tr], y[tr])
+            m = make_xgb(y[tr], seed).fit(X.iloc[tr], y[tr])
             oof[si, te] = m.predict_proba(X.iloc[te])[:, 1]
     return oof, folds
 
@@ -116,7 +112,7 @@ def per_fold_scores(y: np.ndarray, oof: np.ndarray, folds) -> np.ndarray:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--csv", type=Path,
-                    default=REPO_ROOT / "data" / "skempi_features_full.csv")
+                    default=REPO_ROOT / "data" / "skempi_features.csv")
     ap.add_argument("--energetics", type=Path, default=REPO_ROOT / "data" / "energetics.csv")
     ap.add_argument("--holdout", nargs="*", default=["1BRS"])
     ap.add_argument("--strategy", choices=("alanine", "max"), default="alanine")
@@ -163,7 +159,7 @@ def main() -> int:
           f"({df.label.mean():.1%}) | seeds {args.seeds} | folds {args.folds}")
 
     arms = {
-        "V1 + L1  (baseline)": BASE_FEATURES,
+        "shipped features (baseline)": BASE_FEATURES,
         "+ energetics (all 6)": BASE_FEATURES + list(ENERGY_COLUMNS),
         "+ novel energy (4)": BASE_FEATURES + NOVEL_ENERGY,
     }
@@ -173,7 +169,11 @@ def main() -> int:
     results = {}
     folds = None
     for name, feats in arms.items():
-        feats = [f for f in feats if f in df.columns]
+        missing = [f for f in feats if f not in df.columns]
+        if missing:
+            raise SystemExit(
+                f"arm {name!r} wants columns this table does not have: {missing}. "
+                f"Rebuild the feature CSV rather than silently scoring a smaller arm.")
         oof, folds = oof_predictions(df, feats, seeds, args.folds)
         results[name] = (oof, per_fold_scores(y, oof, folds), len(feats))
 
@@ -188,10 +188,10 @@ def main() -> int:
         print(f"    {name:<24}{nf:>8}{pf.mean():>10.4f}{pf.std():>9.4f}"
               f"{roc_auc_score(y, oof.mean(0)):>10.4f}")
 
-    base_pf = results["V1 + L1  (baseline)"][1]
+    base_pf = results["shipped features (baseline)"][1]
     print("\n  PAIRED BY (seed, fold) -- the only comparison that controls fold variance")
     for name, (_, pf, _) in results.items():
-        if name.startswith("V1"):
+        if name.startswith("shipped"):
             continue
         d = (pf - base_pf).ravel()
         t, p = stats.ttest_rel(pf.ravel(), base_pf.ravel())
@@ -207,9 +207,9 @@ def main() -> int:
     picks = [np.concatenate([idx_by_pdb[c]
                              for c in rng.choice(uniq, size=len(uniq), replace=True)])
              for _ in range(args.boot)]
-    base_oof = results["V1 + L1  (baseline)"][0].mean(0)
+    base_oof = results["shipped features (baseline)"][0].mean(0)
     for name, (oof, _, _) in results.items():
-        if name.startswith("V1"):
+        if name.startswith("shipped"):
             continue
         p_arm = oof.mean(0)
         deltas = []
@@ -240,15 +240,12 @@ def main() -> int:
         p = oof.mean(0)[lit.values]
         print(f"    {name:<24}{roc_auc_score(ylit, p):>10.4f}"
               f"{average_precision_score(ylit, p):>10.4f}")
-    print("\n  REFERENCE: V1+L1 previously scored AUC 0.8392 here; published methods "
-          "report ~0.9468")
 
     # ---- where did the model actually put the energy terms? ------------------------------
-    from xgboost import XGBClassifier
-    feats = [f for f in BASE_FEATURES + NOVEL_ENERGY if f in df.columns]
-    X = df[feats].fillna(df[feats].median(numeric_only=True)).fillna(0.0)
-    m = XGBClassifier(scale_pos_weight=(len(y) - y.sum()) / max(1, y.sum()),
-                      random_state=0, **XGB_KWARGS).fit(X, y)
+    # Fitted on every row, so this ranks features; it is not a performance estimate.
+    feats = BASE_FEATURES + NOVEL_ENERGY
+    X, _ = prepare_matrix(df, feats, model="xgboost")
+    m = make_xgb(y, 0).fit(X, y)
     gains = m.get_booster().get_score(importance_type="gain")
     print("\n" + "-" * 78)
     print("  FEATURE GAIN, +novel arm fitted on all rows (ranking only, not a score)")
