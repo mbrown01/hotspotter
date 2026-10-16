@@ -38,10 +38,13 @@ from hotspotter.ml.features import XGB_FEATURES, load_labeled_table  # noqa: E40
 
 FEATURES = list(XGB_FEATURES)
 
-#: Accepted configuration. reg_alpha=50 is the L1 term selected by a sweep; everything else
-#: matches the baseline the graph model was compared against, so the two stay commensurable.
-XGB_KWARGS = dict(n_estimators=300, max_depth=4, learning_rate=0.05,
-                  subsample=0.8, colsample_bytree=0.8, eval_metric="aucpr", n_jobs=-1)
+#: The frozen configuration, imported rather than restated so this script and
+#: hotspotter.ml.train cannot drift apart. reg_alpha is passed separately by callers that
+#: deliberately vary it (the no-L1 comparison row below), so it is stripped here.
+from hotspotter.ml.train import (ACCEPTED_XGB, accepted_scores,  # noqa: E402
+                                 ensemble_scores)
+
+XGB_KWARGS = {k: v for k, v in ACCEPTED_XGB.items() if k != "reg_alpha"}
 
 
 def get_folds(df, split_path: Path, n_splits: int):
@@ -72,7 +75,10 @@ def cross_validate(df, folds, alpha: float, seeds):
     from sklearn.metrics import average_precision_score
     from xgboost import XGBClassifier
 
-    X = df[FEATURES].fillna(df[FEATURES].median(numeric_only=True)).fillna(0.0)
+    # NaNs are passed through deliberately: XGBoost learns a default branch direction
+    # for missing values at every split, which beats any substituted constant. Median
+    # filling conservation's missing 3.7% of rows cost 78% of that feature's benefit.
+    X = df[FEATURES]
     y = df["label"].astype(int).values
     pf = np.zeros((len(seeds), len(folds)))
     oof = np.zeros((len(seeds), len(df)))
@@ -114,7 +120,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--csv", type=Path,
-                    default=REPO_ROOT / "data" / "skempi_features_full.csv")
+                    default=REPO_ROOT / "data" / "skempi_features.csv")
     ap.add_argument("--split", type=Path, default=REPO_ROOT / "data" / "split_alanine.json")
     ap.add_argument("--strategy", choices=("alanine", "max"), default="alanine")
     ap.add_argument("--threshold", type=float, default=2.0)
@@ -147,8 +153,20 @@ def main() -> int:
 
     naive_pf = np.array([average_precision_score(y[te], naive[te]) for _, te in folds])
     results = {}
-    for alpha, tag in ((0.0, "XGBoost (no L1)"), (50.0, "XGBoost + L1 [accepted]")):
+    for alpha, tag in ((0.0, "XGBoost (no L1)"), (50.0, "XGBoost + L1 [SHIPPED]")):
         results[tag] = cross_validate(df, folds, alpha, seeds)
+
+    # The ensemble is reported although it is not shipped, because the comparison is the
+    # reason the shipped model is what it is: it wins here, on folds grouped by complex,
+    # and loses once folds are grouped by >=70% chain identity. See the note above
+    # hotspotter.ml.train.ACCEPTED_ET.
+    ens_oof = np.zeros(len(df))
+    ens_pf = []
+    for tr, te in folds:
+        p = ensemble_scores(df[tr], df[te], FEATURES)
+        ens_oof[te] = p
+        ens_pf.append(average_precision_score(y[te], p))
+    ens_pf = np.array(ens_pf)
 
     print("\n" + "-" * 78)
     print(f"  {'model':<26}{'PR-AUC':>10}{'sd':>9}{'ROC-AUC':>10}")
@@ -159,12 +177,18 @@ def main() -> int:
         print(f"  {tag:<26}{pf.mean():>10.4f}{pf.std(axis=1).mean():>9.4f}"
               f"{roc_auc_score(y, oof):>10.4f}")
     a0 = results["XGBoost (no L1)"][0].mean()
-    a1 = results["XGBoost + L1 [accepted]"][0].mean()
+    print(f"  {'+ extra trees (not shipped)':<26}{ens_pf.mean():>10.4f}"
+          f"{ens_pf.std():>9.4f}{roc_auc_score(y, ens_oof):>10.4f}")
+    a1 = results["XGBoost + L1 [SHIPPED]"][0].mean()
+    a2 = ens_pf.mean()
     print(f"\n  L1 contribution: {a1 - a0:+.4f} PR-AUC")
-    print(f"  lift over naive: {a1 - naive_pf.mean():+.4f} PR-AUC "
+    print(f"  ensemble contribution: {a2 - a1:+.4f} PR-AUC")
+    print(f"  lift over naive, SHIPPED model: {a1 - naive_pf.mean():+.4f} PR-AUC "
           f"({100 * (a1 / naive_pf.mean() - 1):.0f}% relative)")
 
-    best = results["XGBoost + L1 [accepted]"][1]
+    # Everything below reports THE SHIPPED MODEL, XGBoost + L1 alone, so no table here
+    # quotes a number the deployed path would not produce.
+    best = results["XGBoost + L1 [SHIPPED]"][1]
     print("\n" + "-" * 78)
     print("  PER-COMPLEX RANKING  (can a biologist pick k residues and hit a hot spot?)")
     print("-" * 78)
@@ -187,7 +211,7 @@ def main() -> int:
     print(f"  {'model':<26}{'ROC-AUC':>10}{'PR-AUC':>10}")
     print(f"  {'naive buried area':<26}{roc_auc_score(yl, naive[lit.values]):>10.4f}"
           f"{average_precision_score(yl, naive[lit.values]):>10.4f}")
-    print(f"  {'XGBoost + L1 [accepted]':<26}{roc_auc_score(yl, best[lit.values]):>10.4f}"
+    print(f"  {'XGBoost + L1 [SHIPPED]':<26}{roc_auc_score(yl, best[lit.values]):>10.4f}"
           f"{average_precision_score(yl, best[lit.values]):>10.4f}")
     print("=" * 78)
     return 0
