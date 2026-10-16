@@ -84,36 +84,31 @@ def inner_validation_split(train_complexes, val_fraction: float, seed: int):
     return shuffled[n_val:], shuffled[:n_val]
 
 
-def augment_with_stack(graph, probs):
-    """Return a copy of `graph` with the fold-specific XGBoost probability as a 27th column.
+def augment_with_esm(graph, entry):
+    """Append a saved per-residue feature block to a graph's node features.
 
-    The probabilities are OUTER-FOLD SPECIFIC (see build_stack_features.py), so this must be
-    applied fresh inside each fold rather than baked into the saved graphs.
+    ``entry`` is the ``{"labels", "x"}`` record written by build_esm_features.py or
+    build_conservation_feature.py. The labels are not decoration: a matching row COUNT is
+    not a matching row ORDER, node order follows the hotspot_score sort, and any feature
+    change rebuilds the graphs — so a tensor saved before that change re-pairs with the
+    wrong residues and nothing crashes. A bare tensor cannot be checked and is refused.
     """
     import torch
 
     g = graph.clone()
-    if probs.numel() != g.num_nodes:
+    if not (isinstance(entry, dict) and "x" in entry and "labels" in entry):
         raise AssertionError(
-            f"{g.complex_group}: {probs.numel()} stacked probs for {g.num_nodes} nodes"
-        )
-    g.x = torch.cat([g.x, probs.view(-1, 1).to(g.x.dtype)], dim=1)
-    return g
-
-
-def augment_with_esm(graph, emb):
-    """Append the per-residue ESM-2 embedding block to a graph's node features.
-
-    Unlike the stacked XGBoost probability, ESM embeddings depend only on sequence, not on
-    any fold's training set, so they can be attached once rather than per fold.
-    """
-    import torch
-
-    g = graph.clone()
+            f"{g.complex_group}: this feature file stores bare tensors, so the residue "
+            f"order cannot be verified against the graphs. Rebuild it with "
+            f"build_esm_features.py or build_conservation_feature.py.")
+    emb, labels = entry["x"], list(entry["labels"])
     if emb.shape[0] != g.num_nodes:
         raise AssertionError(
-            f"{g.complex_group}: {emb.shape[0]} ESM rows for {g.num_nodes} nodes"
-        )
+            f"{g.complex_group}: {emb.shape[0]} saved rows for {g.num_nodes} nodes")
+    if labels != list(g.residue_labels):
+        raise AssertionError(
+            f"{g.complex_group}: saved residue order does not match the graph; "
+            f"rebuild the feature tensors")
     g.x = torch.cat([g.x, emb.to(g.x.dtype)], dim=1)
     return g
 
@@ -253,17 +248,15 @@ def main() -> int:
     ap.add_argument("--wide", action="store_true",
                     help="Wide & Deep: concat standardized raw features into the head")
     ap.add_argument("--drop-features", nargs="*", default=[],
-                    help="node feature names to exclude (Fix #2 feature cleanup)")
+                    help="node feature names to exclude")
     ap.add_argument("--clip-bfactor", type=float, default=None,
                     help="clip the bfactor column at this value before standardizing")
     ap.add_argument("--conservation-features", type=Path, default=None,
-                    help="append the ESM masked-LM conservation scalar as one feature")
+                    help="append the ESM masked-LM conservation scalar as one feature "
+                         "(from build_conservation_feature.py)")
     ap.add_argument("--esm-features", type=Path, default=None,
-                    help="Phase-2: .pt of per-residue ESM-2 embeddings to append to x "
+                    help=".pt of per-residue ESM-2 embeddings to append to x "
                          "(from build_esm_features.py). Not fold-specific.")
-    ap.add_argument("--stack-features", type=Path, default=None,
-                    help="Fix #3: .pt of nested OOF XGBoost probabilities to append as a "
-                         "27th node feature (from build_stack_features.py)")
     # behavior
     ap.add_argument("--train-full", action="store_true",
                     help="train ONE model on ALL complexes for --epochs and save a "
@@ -289,6 +282,13 @@ def main() -> int:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     graphs, by_complex, split = load_graphs_and_split(args.graphs, args.split)
     esm_dim = 0
+    # Only one appended block is supported. Passing both used to keep the ESM file and
+    # drop conservation without saying so, which looks exactly like "conservation adds
+    # nothing" in the results table.
+    if args.esm_features and args.conservation_features:
+        print("ERROR: --esm-features and --conservation-features both append a block to "
+              "x, and only one is supported. Pass one.", file=sys.stderr)
+        return 2
     esm_src = args.esm_features or args.conservation_features
     esm_prefix = "esm" if args.esm_features else "cons"
     if esm_src:
@@ -297,8 +297,8 @@ def main() -> int:
         if missing:
             raise AssertionError(f"ESM file missing {len(missing)} complexes, e.g. "
                                  f"{sorted(missing)[:3]}")
-        esm_dim = int(next(iter(emb.values())).shape[1])
         by_complex = {c: augment_with_esm(g, emb[c]) for c, g in by_complex.items()}
+        esm_dim = int(next(iter(emb.values()))["x"].shape[1])
         graphs = list(by_complex.values())
 
     extra = tuple(f"{esm_prefix}_{i}" for i in range(esm_dim))
@@ -306,8 +306,7 @@ def main() -> int:
         hidden_channels=args.hidden, n_layers=args.layers, heads=args.heads,
         dropout=args.dropout, residual=not args.no_residual, norm=args.norm,
         wide=args.wide, drop_features=tuple(args.drop_features),
-        clip_bfactor=args.clip_bfactor,
-        extra_feature_names=extra + (("xgb_prob",) if args.stack_features else ()),
+        clip_bfactor=args.clip_bfactor, extra_feature_names=extra,
     )
 
     base = split.get("baseline", {}).get("cv", {})
@@ -328,9 +327,6 @@ def main() -> int:
     if args.dry_run:
         model = HotSpotGAT(cfg).to(device)
         probe = graphs[:4]
-        if args.stack_features:
-            sk = torch.load(args.stack_features, weights_only=False)[0]
-            probe = [augment_with_stack(g, sk[g.complex_group]) for g in probe]
         model.fit_standardizer(probe)
         batch = next(iter(DataLoader(probe, batch_size=4))).to(device)
         model.eval()
@@ -393,29 +389,14 @@ def main() -> int:
         return 0
 
     # ---- 5-fold CV on the baseline's exact folds ----------------------------------------
-    stack = None
-    if args.stack_features:
-        stack = torch.load(args.stack_features, weights_only=False)
-        if len(stack) != len(split["cv_folds"]):
-            raise AssertionError(
-                f"stack file has {len(stack)} folds, split has {len(split['cv_folds'])}"
-            )
-        print(f"  STACKED: nested OOF XGBoost probability as feature 27 "
-              f"({args.stack_features.name})")
-
     results, t0 = [], time.time()
     for i, fold in enumerate(split["cv_folds"]):
         tr_complexes, val_complexes = inner_validation_split(
             fold["train_complexes"], args.val_fraction, args.seed + i
         )
-        if stack is not None:
-            sk = stack[i]
-            pick = lambda c: augment_with_stack(by_complex[c], sk[c])  # noqa: E731
-        else:
-            pick = lambda c: by_complex[c]  # noqa: E731
-        tr = [pick(c) for c in tr_complexes]
-        va = [pick(c) for c in val_complexes]
-        te = [pick(c) for c in fold["test_complexes"]]
+        tr = [by_complex[c] for c in tr_complexes]
+        va = [by_complex[c] for c in val_complexes]
+        te = [by_complex[c] for c in fold["test_complexes"]]
 
         print(f"\n  fold {i}: train {len(tr)} / val {len(va)} / test {len(te)} complexes")
         r = train_one_fold(tr, va, te, cfg, args, device, i)

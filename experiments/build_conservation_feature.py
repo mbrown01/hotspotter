@@ -1,8 +1,8 @@
 """Derive a per-residue conservation scalar from ESM-2 masked-language-model entropy.
 
 WHAT THIS IS, BIOLOGICALLY
-    Phase 1's roadmap named evolutionary conservation "the highest-value remaining feature"
-    and then cut it, because the classical route is heavy plumbing: build a multiple
+    Evolutionary conservation was the highest-value remaining feature on the roadmap
+    and was cut, because the classical route is heavy plumbing: build a multiple
     sequence alignment per chain with MMseqs2 or HHblits, then score per-column entropy.
 
     A protein language model gives the same quantity by a different road. ESM-2 was trained
@@ -94,8 +94,8 @@ def main() -> int:
     out: dict[str, "torch.Tensor"] = {}
     n_scored = n_missing = 0
 
-    # A 650M-parameter masked-marginal sweep is a ~70 minute job. Losing it to a closed
-    # laptop lid once was enough: checkpoint so a restart costs minutes, not the whole run.
+    # A 650M-parameter masked-marginal sweep is a ~70 minute job, so checkpoint: a
+    # restart then costs minutes rather than the whole run.
     if args.resume and partial_pt.exists():
         out = torch.load(partial_pt, weights_only=False)
         print(f"  resuming: {len(out)} complexes already scored\n", flush=True)
@@ -112,7 +112,9 @@ def main() -> int:
             seqs = chain_sequences(g.complex_group, wanted)
         except Exception as exc:
             print(f"  [cons] skip {g.complex_group}: {type(exc).__name__}: {exc}", flush=True)
-            out[g.complex_group] = torch.full((int(g.num_nodes), 1), float(max_entropy))
+            out[g.complex_group] = {
+                "labels": list(g.residue_labels),
+                "x": torch.full((int(g.num_nodes), 1), float(max_entropy))}
             continue
 
         ent_by_key: dict[tuple, float] = {}
@@ -152,7 +154,12 @@ def main() -> int:
             else:
                 col[i, 0] = e
                 n_scored += 1
-        out[g.complex_group] = torch.tensor(col)
+        # The residue labels travel with the column. A matching row COUNT is not a
+        # matching row ORDER, and node order follows the hotspot_score sort, so any
+        # feature change rebuilds the graphs and silently re-pairs a saved tensor with
+        # the wrong residues. train_gnn.augment_with_esm checks these.
+        out[g.complex_group] = {"labels": list(g.residue_labels),
+                                "x": torch.tensor(col)}
 
         if args.checkpoint_every and len(out) % args.checkpoint_every == 0:
             tmp = partial_pt.with_suffix(".tmp")
@@ -164,7 +171,7 @@ def main() -> int:
 
     torch.save(out, out_pt)
     partial_pt.unlink(missing_ok=True)       # a complete run supersedes the checkpoint
-    allv = np.concatenate([v.numpy().ravel() for v in out.values()])
+    allv = np.concatenate([v["x"].numpy().ravel() for v in out.values()])
     print(f"\n  scored {n_scored} nodes, {n_missing} fell back to max entropy")
     print(f"  entropy: mean {allv.mean():.4f}  std {allv.std():.4f}  "
           f"min {allv.min():.4f}  max {allv.max():.4f}")
@@ -178,7 +185,7 @@ def main() -> int:
         if m.sum() == 0:
             continue
         ys.append(g.y.numpy()[m])
-        es.append(out[g.complex_group].numpy().ravel()[m])
+        es.append(out[g.complex_group]["x"].numpy().ravel()[m])
         dd.append(g.y_ddg.numpy()[m])
     y, e, d = np.concatenate(ys), np.concatenate(es), np.concatenate(dd)
     print("\n  BIOLOGICAL SANITY CHECK (labeled nodes only)")

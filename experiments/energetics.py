@@ -1,7 +1,7 @@
 """Implicit-solvent binding energetics per interface residue.
 
 WHAT THIS ADDS OVER THE EXISTING FEATURES
-    Everything in V1 is a geometric proxy for energy: buried area, relative accessibility,
+    Every shipped feature is a geometric proxy for energy: buried area, accessibility,
     packing density. Those correlate with binding energy because burial and energy are
     related, not because anything was computed thermodynamically.
 
@@ -28,9 +28,9 @@ WHY NOT FULL POISSON-BOLTZMANN
     burial-dependent desolvation -- analytically and per atom.
 
 WHY THIS IS WORTH TRYING WHEN EIGHT PREVIOUS FEATURE ADDITIONS FAILED
-    The existing crude electrostatic term (`coulombic_sum` in features_v2) uses two-value
-    +/-0.5 charges on formally charged groups only. It is therefore exactly 0.0 for 76% of
-    residues -- and STILL correlates with ddG at rho = -0.162, p = 8e-08. A term that is
+    The earlier crude electrostatic term used two-value +/-0.5 charges on formally
+    charged groups only. It was therefore exactly 0.0 for 76% of residues -- and STILL
+    correlated with ddG at rho = -0.162, p = 8e-08. A term that is
     three-quarters dead and still significant is the clearest signal we have that a proper
     treatment has headroom. Every other failed addition was a new signal we hoped for; this
     one is a measured signal we are un-crippling.

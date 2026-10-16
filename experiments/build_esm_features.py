@@ -159,7 +159,12 @@ def main() -> int:
                 stats["unmapped"] += 1     # truncated tail, or a residue ESM never saw
             else:
                 mat[i] = v
-        feats[g.complex_group] = torch.tensor(mat)
+        # The residue labels travel with the matrix. A matching row COUNT is not a
+        # matching row ORDER, and node order follows the hotspot_score sort, so any
+        # feature change rebuilds the graphs and silently re-pairs a saved tensor with
+        # the wrong residues. train_gnn.augment_with_esm checks these.
+        feats[g.complex_group] = {"labels": list(g.residue_labels),
+                                  "x": torch.tensor(mat)}
 
         if n % 25 == 0:
             print(f"  [esm] ...{n}/{len(graphs)} complexes", flush=True)

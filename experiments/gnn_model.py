@@ -98,9 +98,9 @@ class GNNConfig:
     extra_feature_names: tuple[str, ...] = ()
     """Names of feature columns appended to x BEYOND the 26 pinned NODE_FEATURES.
 
-    FIX #3 uses this for one column: the nested out-of-fold XGBoost probability. Declaring
-    the name here keeps the model's notion of its own input layout explicit, so a stacked
-    run cannot be silently confused with an unstacked one.
+    Used for the ESM-2 embedding and conservation blocks. Declaring the names here keeps
+    the model's notion of its own input layout explicit, so a run with an appended block
+    cannot be silently confused with one without.
     """
 
     clip_bfactor: float | None = None
