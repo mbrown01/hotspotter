@@ -1,58 +1,40 @@
-# --- Python ---
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
-.eggs/
 build/
 dist/
 .pytest_cache/
-.mypy_cache/
-.ruff_cache/
 .ipynb_checkpoints/
-
-# --- Virtual environments ---
 .venv/
 venv/
-env/
 
-# --- Data & outputs (large / regenerable; keep out of git) ---
-data/raw/
-data/external/
-data/interim/
-outputs/
+# Data: downloads and build products, regenerable from scripts/
+data/*
+!data/README.md
+!data/skempi_features.csv
+!data/split_alanine.json
+!data/chain_sequences.json
 *.pdb
 *.cif
-*.pdb.gz
-*.cif.gz
-!tests/fixtures/*.pdb          # keep tiny test fixtures if we add them
-
-# --- SKEMPI / large tables (Phase 2) ---
-data/skempi*/
-# every table under data/ is a build product of the scripts in scripts/, so it is
-# regenerable and stays out of git; data/README.md is tracked explicitly below
-data/*.csv
-data/*.pt
-!data/README.md
+*.gz
 *.zip
+*.bak
 
-# --- Editors / OS ---
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
-
-# --- Secrets (there shouldn't be any, but just in case) ---
-.env
-*.key
-
-# --- Local-only planning/reference docs (kept on disk, not published) ---
-docs/
-
-# --- Generated artifacts: results, predictions, figures (regenerable, not source) ---
-data/*.json
+# Generated outputs
+outputs/
 predictions/
 figures/
 *.html
 
-# --- Local-only notebooks (exploration, not part of the published pipeline) ---
+# Local only
+docs/
 notebooks/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+.env
+
+# Figure inputs and images, regenerable from scripts/export_figure_data.py
+assets/
