@@ -2,7 +2,7 @@
 
 This is the data-processing entry point. It reads SKEMPI, downloads each complex, runs the
 feature pipeline over every interface, joins measured ddG onto the matching residue,
-and writes ``data/skempi_features_full.csv`` -- the input to every model and every
+and writes ``data/skempi_features.csv`` -- the input to every model and every
 evaluation in the repo.
 
 The full run downloads a few hundred PDB entries and takes hours; ``--limit`` caps the
@@ -51,7 +51,7 @@ def main() -> int:
                     help="cap distinct complexes (default: no cap = full run). Use e.g. 20 to smoke-test.")
     ap.add_argument("--threshold", type=float, default=2.0,
                     help="ddG (kcal/mol) above which a mutation is 'disruptive' (default: 2.0)")
-    ap.add_argument("--out", type=Path, default=REPO_ROOT / "data" / "skempi_features_full.csv",
+    ap.add_argument("--out", type=Path, default=REPO_ROOT / "data" / "skempi_features.csv",
                     help="where to save the built feature table")
     ap.add_argument("--reuse", action="store_true",
                     help="load the feature table from --out instead of rebuilding (skips hours of downloads)")

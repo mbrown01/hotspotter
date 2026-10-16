@@ -21,9 +21,11 @@ import pandas as pd
 
 from hotspotter.features.chemistry import Contact, detect_contacts, per_residue_chemistry
 from hotspotter.features.confidence import compute_confidence_features
+from hotspotter.features.conservation import compute_conservation_features
 from hotspotter.features.identity import compute_identity_features
 from hotspotter.features.sasa import SASA_BACKEND, compute_sasa_features
 from hotspotter.features.topology import compute_topology_features
+from hotspotter.features.vdw import compute_vdw_features
 from hotspotter.interface import Interface, detect_interface, guess_two_sides
 from hotspotter.io import (
     fetch_pdb,
@@ -91,6 +93,8 @@ def analyze_complex(
     is_predicted: bool = False,
     weights: Weights | None = None,
     interface_cutoff: float | None = None,
+    conservation: bool = True,
+    pdb_id: str | None = None,
 ) -> ComplexAnalysis:
     """Run the full feature pipeline on one complex.
 
@@ -101,6 +105,12 @@ def analyze_complex(
     is_predicted : True if this is an AlphaFold/ColabFold model (so the B-factor column is
         pLDDT, and confidence features are labeled accordingly).
     weights : optional custom ranking weights.
+    conservation : look up evolutionary conservation from ConSurf-DB (one network call per
+        chain, cached on disk). False uses only what is already cached; residues with no
+        cached entry get NaN rather than a substituted value.
+    pdb_id : the PDB entry a LOCAL file corresponds to. Without it a file input gets
+        no conservation at all, so a model trained with the feature predicts on a
+        column that is NaN for every residue. Ignored when `source` is a PDB id.
     """
     # 1. Load ------------------------------------------------------------------------
     source_str = str(source)
@@ -135,7 +145,14 @@ def analyze_complex(
     sasa = compute_sasa_features(model, side_a, side_b)
     topo = compute_topology_features(model, interface)
     ident = compute_identity_features(interface)
-    conf = compute_confidence_features(interface, is_predicted=is_predicted)
+    header = getattr(structure, "header", {}) or {}
+    conf = compute_confidence_features(
+        interface, is_predicted=is_predicted,
+        method=header.get("structure_method"), resolution=header.get("resolution"))
+    vdw = compute_vdw_features(model, interface)
+    cons = compute_conservation_features(
+        model, interface, pdb_id=(source_str if is_pdb_id else pdb_id),
+        offline=not conservation)
 
     # 4. Merge into one tidy table ---------------------------------------------------
     rows = []
@@ -148,7 +165,7 @@ def analyze_complex(
             "resname": rid.resname,
             "side": ir.side,
         }
-        for group in (chem, sasa, topo, ident, conf):
+        for group in (chem, sasa, topo, ident, conf, vdw, cons):
             row.update(group.get(rid, {}))
         rows.append(row)
     df = pd.DataFrame(rows)

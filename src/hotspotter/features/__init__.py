@@ -7,6 +7,7 @@ Feature groups:
     topology      central vs peripheral, contact counts, local packing (the O-ring signal)
     identity      amino-acid physicochemical properties (lookup tables)
     confidence    pLDDT / PAE (predicted) and B-factor (experimental) flexibility proxies
-    conservation  evolutionary conservation from an MSA / ConSurf (planned; highest signal
-                  after chemistry)
+    conservation  evolutionary conservation from ConSurf-DB
+    vdw           Lennard-Jones packing of the side chain against the partner
+    geometry      shared distance and angle primitives the other modules call
 """

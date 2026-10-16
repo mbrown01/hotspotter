@@ -32,7 +32,7 @@ STANDARD_RESIDUES = frozenset(THREE_TO_ONE)
 # --- Formal side-chain charge at physiological pH (~7.4) ------------------------------
 # +1 cationic, -1 anionic, 0 neutral. HIS is ~+0.1 (mostly neutral) at pH 7.4, so we
 # treat it as neutral for charge but still allow it as a weak salt-bridge / cation-pi
-# partner elsewhere. See docs/biology/02_interaction_chemistry.md.
+# partner elsewhere.
 FORMAL_CHARGE = {
     "ARG": +1, "LYS": +1,
     "ASP": -1, "GLU": -1,
@@ -66,6 +66,11 @@ HBOND_ACCEPTORS = {
     "MET": {"SD"}, "CYS": {"SG"},
 }
 BACKBONE_DONOR_ATOMS = {"N"}       # amide N-H
+#: ...except proline. Its side chain closes a ring back onto its own backbone nitrogen,
+#: so that N is tertiary and carries NO hydrogen. Proline is the one residue in the
+#: twenty that cannot donate a backbone hydrogen bond, and counting one for it inflates
+#: n_hydrogen_bonds -- the second-heaviest term in the heuristic ranking.
+NO_BACKBONE_DONOR = frozenset({"PRO"})
 BACKBONE_ACCEPTOR_ATOMS = {"O"}    # carbonyl O
 
 # --- Hydrophobic side-chain carbons ---------------------------------------------------

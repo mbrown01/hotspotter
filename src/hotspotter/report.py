@@ -36,12 +36,26 @@ def contacts_to_frame(analysis: ComplexAnalysis) -> pd.DataFrame:
     )
 
 
+def _source_tag(source: str | None) -> str:
+    """Short filesystem-safe name for a complex: a PDB id as-is, a file by its stem."""
+    if not source:
+        return "complex"
+    candidate = Path(source)
+    stem = candidate.stem if (candidate.suffix or len(candidate.parts) > 1) else source
+    for bad in ("/", "\\", ":"):
+        stem = stem.replace(bad, "_")
+    return stem
+
+
 def save_outputs(analysis: ComplexAnalysis, out_dir: str | Path | None = None,
                  tag: str | None = None) -> dict[str, Path]:
     """Write features CSV, contacts CSV, and a text report. Returns the paths written."""
     out_dir = Path(out_dir) if out_dir else OUTPUTS
     out_dir.mkdir(parents=True, exist_ok=True)
-    tag = tag or (analysis.source or "complex").replace("/", "_").replace("\\", "_")
+    # A file source must collapse to its STEM. Keeping the path turns a Windows
+    # absolute path into a tag like "C:_x_y.pdb", and `Path(out_dir) / "C:_..."` is then
+    # read as drive-qualified, so out_dir is discarded entirely and --out is ignored.
+    tag = tag or _source_tag(analysis.source)
 
     features_csv = out_dir / f"{tag}_features.csv"
     contacts_csv = out_dir / f"{tag}_contacts.csv"

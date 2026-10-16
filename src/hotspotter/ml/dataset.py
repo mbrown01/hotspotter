@@ -91,7 +91,11 @@ def parse_mutation(code: str) -> Mutation:
     middle = code[2:-1]
     icode = " "
     if middle and middle[-1].isalpha():   # trailing insertion code, e.g. '17A' style pos
-        icode = middle[-1]
+        # CASE MATTERS. SKEMPI writes the code lowercase ('DA60aA'); the PDB file writes
+        # it uppercase ('ASP A 60A'). Comparing them as-is never matches, which silently
+        # dropped all 35 insertion-code mutations -- including the 1EAW chain A 60a-60g
+        # series that _find_residue_row's docstring cites as the reason the check exists.
+        icode = middle[-1].upper()
         middle = middle[:-1]
     return Mutation(wt=wt, chain=chain, resseq=int(middle), mut=mut, icode=icode)
 
@@ -171,7 +175,7 @@ def build_dataset(
     """
     df = load_skempi(skempi_csv)
     cols = SKEMPI_COLUMNS
-    cache: dict[str, ComplexAnalysis] = {}
+    cache: dict[tuple, ComplexAnalysis] = {}
     rows: list[dict] = []
     skipped = {"multi_mut": 0, "no_kd": 0, "no_structure": 0, "residue_not_found": 0}
     seen_complexes: set[str] = set()
@@ -198,19 +202,24 @@ def build_dataset(
             skipped["no_kd"] += 1
             continue
 
-        # Analyze the complex once (cached).
-        if pdb_id not in cache:
+        # Analyze the complex once per CHAIN PAIRING, not once per PDB id. SKEMPI lists
+        # 2C5D, 3SE3 and 3SE4 with two different pairings each; caching on the pdb id
+        # alone means the second pairing silently reuses the first one's interface, so
+        # those rows carry burial and contact features describing the wrong partner.
+        # complex_group stays the pdb id, so the folds still keep a structure together.
+        key = (pdb_id, side_a, side_b)
+        if key not in cache:
             try:
-                cache[pdb_id] = analyze_complex(pdb_id, chains=(side_a, side_b))
+                cache[key] = analyze_complex(pdb_id, chains=(side_a, side_b))
             except Exception as exc:  # download/parse/interface failure -> skip this complex
-                cache[pdb_id] = None
-                print(f"[skempi] skip {pdb_id}: {exc}", flush=True)
+                cache[key] = None
+                print(f"[skempi] skip {pdb_id} {side_a}/{side_b}: {exc}", flush=True)
             seen_complexes.add(pdb_id)
             # Progress heartbeat: the full sweep is hundreds of downloads + pipeline runs.
             if len(seen_complexes) % 25 == 0:
                 print(f"[skempi] ...{len(seen_complexes)} complexes seen, "
                       f"{len(rows)} labeled rows so far", flush=True)
-        analysis = cache[pdb_id]
+        analysis = cache[key]
         if analysis is None:
             skipped["no_structure"] += 1
             continue
@@ -226,6 +235,7 @@ def build_dataset(
             "ddg": ddg,
             "label": int(ddg >= ddg_disruptive_threshold),
             "complex_group": pdb_id,      # <-- the group key that enforces split-by-complex
+            "pdb_tag": str(r[cols["pdb_field"]]).strip(),   # which PAIRING this row used
             "mutation": mut_field,
         })
         rows.append(record)
