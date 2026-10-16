@@ -36,5 +36,7 @@ notebooks/
 Thumbs.db
 .env
 
-# Figure inputs and images, regenerable from scripts/export_figure_data.py
-assets/
+# Figures: the PNGs the README shows are committed; the CSVs behind them are
+# regenerable from scripts/export_figure_data.py
+assets/*
+!assets/*.png

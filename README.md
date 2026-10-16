@@ -29,6 +29,18 @@ but only the 14th most buried of the 17 residues SKEMPI measured there. With 3M6
 close homologs held out of training, HotSpotter ranks it **#1** — while the most buried of
 those 17, Phe9, is not a hot spot at all (ΔΔG 0.99).
 
+![Hot-spot recovery on 3M62](assets/3m62_ranking.png)
+
+**1EMV (colicin E9 DNase–Im9).** The most completely scanned interface in the set, so
+little is unknown: 32 of its 43 interface residues were measured. Burial finds 4 of the
+9 hot spots in its top nine; HotSpotter finds 6.
+
+![Hot-spot recovery on 1EMV](assets/1emv_ranking.png)
+
+Both figures rank only the measured residues — an unmeasured residue in a method's top *k*
+is neither a hit nor a miss — and each complex is removed from training along with
+everything sharing ≥70% chain identity with it before being scored.
+
 **Split audit.** `scripts/audit_splits.py` holds data, features, model and seeds fixed and
 varies only the fold grouping.
 
