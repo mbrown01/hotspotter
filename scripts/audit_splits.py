@@ -1,7 +1,7 @@
 """Measure what the choice of cross-validation split is worth.
 
 The reported metrics group folds by complex. That is a claim about protocol, and this
-script is the evidence for it: same data, same 25 features, same model, same seeds, with
+script is the evidence for it: same data, same feature set, same model, same seeds, with
 only the fold assignment changing.
 
     random residue split    residues from one interface land on both sides of the split.
@@ -159,7 +159,9 @@ def cross_validate(df, folds, seeds):
     from sklearn.metrics import average_precision_score
     from xgboost import XGBClassifier
 
-    X = df[FEATURES].fillna(df[FEATURES].median(numeric_only=True)).fillna(0.0)
+    # NaN passed through deliberately -- XGBoost learns a default branch per split.
+    # A median fill here both leaks held-out medians and discards the MNAR signal.
+    X = df[FEATURES]
     y = df["label"].astype(int).values
     pf = np.zeros((len(seeds), len(folds)))
     oof = np.zeros((len(seeds), len(df)))
@@ -217,7 +219,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--csv", type=Path,
-                    default=REPO_ROOT / "data" / "skempi_features_full.csv")
+                    default=REPO_ROOT / "data" / "skempi_features.csv")
     ap.add_argument("--raw", type=Path, default=REPO_ROOT / "data" / "raw")
     ap.add_argument("--cache", type=Path,
                     default=REPO_ROOT / "data" / "chain_sequences.json")
@@ -268,8 +270,11 @@ def main() -> int:
             print(f"  clustering at >= {thr:.0%} identity...", flush=True)
             cl = cluster_complexes(seqs, thr)
             groups = df["pdb_id"].map(cl).values
+            # count the clusters THIS SPLIT USES, not the clusters in the sequence
+            # cache. The cache covers every complex we ever fetched (294), so
+            # len(set(cl.values())) overstates the number of groups GroupKFold sees.
             regimes.append((f"group by >={thr:.0%}-identity cluster",
-                            len(set(cl.values())), groups))
+                            len(set(groups)), groups))
 
     print("\n" + "-" * 84)
     print(f"  {'split'.ljust(34)}{'groups':>8}{'PR-AUC':>10}{'sd':>8}{'ROC':>8}"

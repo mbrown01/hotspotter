@@ -404,7 +404,10 @@ def main() -> int:
                          "the model score and buried area, plus a rank-disagreement table")
     ap.add_argument("--top", type=int, default=10, help="rows in the side panel")
     ap.add_argument("--title", default=None)
-    ap.add_argument("--cv-claim", default="0.5076 ± 0.0531")
+    ap.add_argument("--cv-claim", default=None,
+                    help="cross-validated PR-AUC to print; pass the number "
+                         "from the current evaluate.py run. A stale default "
+                         "here ends up in the published HTML.")
     args = ap.parse_args()
 
     pdb_path = resolve_pdb(args.pdb)
@@ -545,7 +548,9 @@ def main() -> int:
         channel_button=channel_button, channel_caption=channel_caption,
         chain_legend=chain_legend,
         pdb_json=json.dumps(pdb_text), highlights_json=json.dumps(highlights),
-        burial_json=json.dumps(burial), cv_claim=args.cv_claim,
+        burial_json=json.dumps(burial),
+        # No stale default: an unspecified claim names the source instead of a number.
+        cv_claim=(args.cv_claim or "the figure reported by scripts/evaluate.py"),
         chain_colors_json=json.dumps(chain_colors), scored_json=json.dumps(scored),
     )
     args.out.parent.mkdir(parents=True, exist_ok=True)

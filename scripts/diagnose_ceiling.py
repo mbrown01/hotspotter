@@ -1,10 +1,10 @@
 """Why does nothing improve this model? Four measurements that separate the explanations.
 
 THE OBSERVATION THIS EXISTS TO EXPLAIN
-    Ten interventions were tried against the V1+L1 tabular baseline. Two helped: a Wide &
+    Ten interventions were tried against the tabular baseline. Two helped: a Wide &
     Deep skip connection (+0.033) and L1 regularization (+0.015). Both are changes to the
     MODEL. Eight failed: feature cleanup, XGBoost stacking, ESM-2 320-d embeddings, an ESM
-    conservation scalar at 8M and at 650M, atom-level V2 chemistry, ESM-650M embeddings
+    conservation scalar at 8M and at 650M, atom-level chemistry, ESM-650M embeddings
     under every PCA variant, a GNN/XGBoost ensemble, and implicit-solvent energetics. Every
     one of those eight adds INFORMATION. None of them moved the score.
 
@@ -127,8 +127,30 @@ def learning_curve(df, X, y, seeds, n_splits, fractions):
 # ---------------------------------------------------------------------------------------
 # 2. FEATURE REDUNDANCY
 # ---------------------------------------------------------------------------------------
+def _dense(X):
+    """Median-filled copy of the feature matrix, for the analyses that cannot take NaN.
+
+    PCA and nearest-neighbour distances need a complete matrix. `cons_score` and
+    `bfactor_sc_bb` are legitimately missing for a few percent of residues, and the
+    MODEL handles that natively by learning a default branch per split -- which is why
+    nothing here is ever used to make a prediction. These functions ask how much
+    independent information the features carry and how far apart residues sit in that
+    space; both are questions about the geometry, where a median is a reasonable stand
+    in and dropping the rows would bias the answer toward well-characterised residues.
+    """
+    import pandas as _pd
+
+    if not hasattr(X, "isna"):
+        X = _pd.DataFrame(X)
+    missing = [c for c in X.columns if X[c].isna().any()]
+    if missing:
+        frac = {c: f"{X[c].isna().mean():.1%}" for c in missing}
+        print(f"    (median-filled for this analysis only: {frac})")
+    return X.fillna(X.median(numeric_only=True)).fillna(0.0)
+
+
 def redundancy(df, X, y, seeds, n_splits):
-    """How many independent things do 25 features actually measure?"""
+    """How many independent things do the features actually measure?"""
     from sklearn.decomposition import PCA
     from sklearn.model_selection import GroupKFold
     from sklearn.preprocessing import StandardScaler
@@ -136,7 +158,7 @@ def redundancy(df, X, y, seeds, n_splits):
     print("\n" + "=" * 78)
     print("  2. IS IT REDUNDANCY?   effective dimensionality of the feature matrix")
     print("=" * 78)
-    Z = StandardScaler().fit_transform(X.values)
+    Z = StandardScaler().fit_transform(_dense(X).values)
     ev = PCA().fit(Z).explained_variance_ratio_
     cum = np.cumsum(ev)
     for thresh in (0.50, 0.80, 0.90, 0.95, 0.99):
@@ -160,13 +182,13 @@ def redundancy(df, X, y, seeds, n_splits):
         scores = []
         for seed in seeds:
             for tr, te in folds:
-                sc = StandardScaler().fit(X.iloc[tr].values)
+                sc = StandardScaler().fit(_dense(X).iloc[tr].values)
                 if k == len(X.columns):
-                    Ptr, Pte = X.iloc[tr].values, X.iloc[te].values
+                    Ptr, Pte = X.iloc[tr].values, X.iloc[te].values   # XGBoost: NaN is fine
                 else:
-                    pca = PCA(n_components=k).fit(sc.transform(X.iloc[tr].values))
-                    Ptr = pca.transform(sc.transform(X.iloc[tr].values))
-                    Pte = pca.transform(sc.transform(X.iloc[te].values))
+                    pca = PCA(n_components=k).fit(sc.transform(_dense(X).iloc[tr].values))
+                    Ptr = pca.transform(sc.transform(_dense(X).iloc[tr].values))
+                    Pte = pca.transform(sc.transform(_dense(X).iloc[te].values))
                 scores.append(fit_score(pd.DataFrame(Ptr), y[tr], pd.DataFrame(Pte), y[te], seed))
         s = np.array(scores)
         tag = "all raw features" if k == len(X.columns) else f"top {k} principal component" + ("s" if k > 1 else "")
@@ -378,7 +400,7 @@ def information_present(df, X, y, oof, n_splits, k=5):
     print("  6. IS THE ANSWER IN THE FEATURES?   look-alike residues, no model involved")
     print("=" * 78)
 
-    Z = StandardScaler().fit_transform(X.values)
+    Z = StandardScaler().fit_transform(_dense(X).values)
     ddg = np.asarray(df["ddg"], dtype=float)
     # .values on a pandas string column is a StringArray, which does not broadcast
     pdb = np.asarray(df["pdb_id"].astype(str), dtype=object)
@@ -434,7 +456,7 @@ def information_present(df, X, y, oof, n_splits, k=5):
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--csv", type=Path,
-                    default=REPO_ROOT / "data" / "skempi_features_full.csv")
+                    default=REPO_ROOT / "data" / "skempi_features.csv")
     ap.add_argument("--skempi", type=Path, default=REPO_ROOT / "data" / "skempi_v2.csv")
     ap.add_argument("--holdout", nargs="*", default=["1BRS"])
     ap.add_argument("--threshold", type=float, default=2.0)
@@ -452,7 +474,9 @@ def main() -> int:
     df = collapse(df, "alanine", args.threshold).reset_index(drop=True)
 
     feats = [f for f in FEATURES if f in df.columns]
-    X = df[feats].fillna(df[feats].median(numeric_only=True)).fillna(0.0)
+    # NaN passed through deliberately -- XGBoost learns a default branch per split.
+    # A median fill here both leaks held-out medians and discards the MNAR signal.
+    X = df[feats]
     y = df["label"].astype(int).values
     seeds = list(range(args.seeds))
 
