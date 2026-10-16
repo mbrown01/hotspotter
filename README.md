@@ -25,8 +25,9 @@ another residue from the same interface. 5 folds × 5 seeds.
 <sup>2</sup> fraction of complexes whose top-*k* ranked residues contain a true hot spot.
 
 **3M62 (Ufd2–Rad23).** Tyr97 is the strongest hot spot in the interface (ΔΔG 4.48 kcal/mol)
-but only the 21st most buried of 33 interface residues. With 3M62 held out of training,
-HotSpotter ranks it **#1**. The second-most-buried residue, Phe9, is not a hot spot (ΔΔG 0.99).
+but only the 14th most buried of the 17 residues SKEMPI measured there. With 3M62 and its
+close homologs held out of training, HotSpotter ranks it **#1** — while the most buried of
+those 17, Phe9, is not a hot spot at all (ΔΔG 0.99).
 
 **Split audit.** `scripts/audit_splits.py` holds data, features, model and seeds fixed and
 varies only the fold grouping.
