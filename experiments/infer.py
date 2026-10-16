@@ -17,9 +17,15 @@ HOW TO READ THE OUTPUT
     trained with positive-class weighting to handle a 23% positive rate, which deliberately
     inflates scores. Use the RANKING, not the absolute value.
 
-    The honest performance claim for these numbers is the cross-validated PR-AUC of
-    0.5076 +/- 0.0531 on held-out SKEMPI complexes -- not anything measured on this
-    structure, which has no ground-truth labels.
+    The performance claim for these numbers is the cross-validated PR-AUC on held-out
+    SKEMPI complexes, read at run time from the ``data/gnn_results_wide_s*.json`` files
+    that ``train_gnn.py`` wrote -- not anything measured on this structure, which has no
+    ground-truth labels. It was previously quoted here as a literal, with nothing in the
+    repo tying it to a run.
+
+    This is the GNN path, and the GNN is not the shipped model: it tied the tabular
+    XGBoost and the simpler one was kept. ``scripts/infer_xgb.py`` is the shipped
+    inference path.
 
 Usage::
 
@@ -50,6 +56,24 @@ LABEL_RE = re.compile(r"^(?P<chain>.+)/(?P<resname>[A-Z]{3})(?P<resseq>-?\d+)(?P
 def parse_chains(spec: str):
     left, right = spec.split(",", 1)
     return tuple(left.strip()), tuple(right.strip())
+
+
+def cv_claim(results_glob: str = "gnn_results_wide_s*.json") -> str:
+    """The cross-validated PR-AUC for this architecture, read from the training runs.
+
+    Returned as a sentence rather than a number so the caller cannot print a figure
+    nobody measured: with no result files present it names the script to run instead.
+    """
+    import json
+
+    files = sorted((REPO_ROOT / "data").glob(results_glob))
+    if not files:
+        return ("unmeasured here -- run experiments/train_gnn.py --wide to produce "
+                f"data/{results_glob}")
+    means = [json.loads(f.read_text())["gnn_pr_auc_mean"] for f in files]
+    stds = [json.loads(f.read_text())["gnn_pr_auc_std"] for f in files]
+    return (f"CV PR-AUC {np.mean(means):.4f} +/- {np.mean(stds):.4f} "
+            f"over {len(files)} seeds ({', '.join(f.stem[-2:] for f in files)})")
 
 
 def main() -> int:
@@ -85,6 +109,18 @@ def main() -> int:
     tag = Path(args.pdb).stem.lower()
     out = args.out or (REPO_ROOT / "predictions" / f"{tag}_predictions.csv")
 
+    if args.is_predicted:
+        # The feature set includes `bfactor`, and a predicted structure has no B-factor:
+        # that column holds pLDDT, which is the OPPOSITE sense (high pLDDT = confident,
+        # high B = mobile). The pipeline therefore emits `plddt` instead and every
+        # downstream lookup fails. Aliasing the two would be worse than crashing -- the
+        # model would read confidence as disorder -- so refuse with the reason.
+        raise SystemExit(
+            "--is-predicted is not supported by this inference path: the model was "
+            "trained on crystallographic B-factors, and a predicted structure's "
+            "equivalent column (pLDDT) means the opposite. Retrain without `bfactor` "
+            "before scoring predicted structures.")
+
     print("=" * 78)
     print(f"  HOT-SPOT INFERENCE  |  {args.pdb}  |  {side_a} vs {side_b}")
     print("=" * 78)
@@ -93,6 +129,19 @@ def main() -> int:
     analysis = analyze_complex(args.pdb, chains=(side_a, side_b),
                                is_predicted=args.is_predicted,
                                interface_cutoff=args.interface_cutoff)
+
+    # A non-X-ray entry has no crystallographic B-factor, so `bfactor` arrives as NaN --
+    # and complex_to_data fills NaN with 0.0, which the standardizer then reads as an
+    # unusually RIGID residue. The model would rank every residue of an NMR structure on
+    # a value that came from a fill rule. Refuse, rather than return a plausible ranking
+    # built on it.
+    if not int(analysis.table["is_xray"].iloc[0]):
+        raise SystemExit(
+            "this structure is not X-ray, so it carries no crystallographic B-factor. "
+            "The GNN's node features include `bfactor`, and the graph builder fills a "
+            "missing value with 0.0, which reads as maximally rigid. Score X-ray "
+            "entries, or retrain without `bfactor`.")
+
     data = complex_to_data(analysis, pd.DataFrame(
         columns=["pdb_id", "chain", "resseq", "icode", "wt", "mut", "ddg", "mutation"]))
     from hotspotter.constants import Cutoffs as _C
@@ -166,7 +215,7 @@ def main() -> int:
     print(f"\n  wrote {out}")
     print(f"        {out.with_name(out.stem + '_full.csv')}  (ranks, std, side)")
     print("\n  Scores are ranking signals, not calibrated probabilities (trained with")
-    print("  positive-class weighting). Performance claim = CV PR-AUC 0.5076 +/- 0.0531.")
+    print(f"  positive-class weighting). Performance claim = {cv_claim()}.")
     print("=" * 78)
     return 0
 
