@@ -39,6 +39,7 @@ from hotspotter.constants import (
     AROMATIC_RING_ATOMS,
     BACKBONE_ACCEPTOR_ATOMS,
     BACKBONE_DONOR_ATOMS,
+    NO_BACKBONE_DONOR,
     CATIONIC_ATOMS,
     Cutoffs,
     HBOND_ACCEPTORS,
@@ -86,6 +87,16 @@ def _atoms_by_name(residue, names) -> list:
     return out
 
 
+def backbone_donor_atoms(resname: str) -> set[str]:
+    """Which backbone atoms of `resname` can donate a hydrogen bond.
+
+    Every residue donates through its amide N-H except proline, whose side chain closes
+    a ring onto that nitrogen and leaves no hydrogen on it. Counting one for proline
+    inflates n_hydrogen_bonds.
+    """
+    return set() if resname in NO_BACKBONE_DONOR else set(BACKBONE_DONOR_ATOMS)
+
+
 def _has_hydrogens(residue) -> bool:
     return any(a.element == "H" for a in residue.get_atoms())
 
@@ -122,7 +133,8 @@ def _hydrogen_bonds(res_a, res_b, rid_a, rid_b) -> list[Contact]:
         ((res_a, rid_a), (res_b, rid_b)),
         ((res_b, rid_b), (res_a, rid_a)),
     ):
-        don_names = set(HBOND_DONORS.get(don_res.get_resname(), set())) | BACKBONE_DONOR_ATOMS
+        don_names = (set(HBOND_DONORS.get(don_res.get_resname(), set()))
+                     | backbone_donor_atoms(don_res.get_resname()))
         acc_names = set(HBOND_ACCEPTORS.get(acc_res.get_resname(), set())) | BACKBONE_ACCEPTOR_ATOMS
         for don, acc in product(_atoms_by_name(don_res, don_names),
                                 _atoms_by_name(acc_res, acc_names)):

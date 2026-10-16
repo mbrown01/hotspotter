@@ -39,14 +39,26 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 
 from hotspotter.ml.dataset import parse_mutation  # noqa: E402
-from hotspotter.ml.features import XGB_FEATURES, collapse  # noqa: E402
+from hotspotter.ml.features import XGB_FEATURES, collapse, prepare_matrix  # noqa: E402
+from hotspotter.ml.train import make_xgb  # noqa: E402
 
 LABEL_RE = re.compile(r"^(?P<chain>.+)/(?P<resname>[A-Z]{3})(?P<resseq>-?\d+)(?P<icode>[A-Za-z]?)$")
 FEATURES = list(XGB_FEATURES)
 
 
+def res_key(pdb: str, chain: str, resseq, icode) -> tuple:
+    """The join key for one residue, insertion code included.
+
+    Kabat-numbered chains put several distinct residues at one number -- 1EAW chain A has
+    four at 60, 3BN9 chain B four at 60, 3SE8 chain H three at 100. Keying on
+    (pdb, chain, resseq) collapses them, and whichever row is written last wins, so the
+    two arms end up joined on residues that are not the same residue.
+    """
+    return (pdb, chain, int(resseq), str(icode or "").strip())
+
+
 def gnn_oof(graphs_pt: Path, split: dict, seeds: list[int], args):
-    """Out-of-fold GNN probabilities, keyed by (pdb, chain, resseq)."""
+    """Out-of-fold GNN probabilities, keyed by res_key."""
     import torch
     from torch_geometric.loader import DataLoader
 
@@ -87,17 +99,22 @@ def gnn_oof(graphs_pt: Path, split: dict, seeds: list[int], args):
                         if not m[i]:
                             continue
                         x = LABEL_RE.match(lab)
-                        k = (g.complex_group, x.group("chain"), int(x.group("resseq")))
+                        k = res_key(g.complex_group, x.group("chain"),
+                                    x.group("resseq"), x.group("icode"))
                         acc.setdefault(k, []).append(float(p[i]))
         print(f"    gnn fold {fi} done", flush=True)
     return {k: float(np.mean(v)) for k, v in acc.items()}
 
 
 def xgb_oof(df: pd.DataFrame, split: dict, seeds: list[int]):
-    """Out-of-fold XGBoost probabilities on the same folds, keyed the same way."""
-    from xgboost import XGBClassifier
+    """Out-of-fold XGBoost probabilities on the same folds, keyed the same way.
 
-    X = df[FEATURES].fillna(df[FEATURES].median(numeric_only=True)).fillna(0.0)
+    Built through make_xgb and prepare_matrix rather than by hand, so this arm is the
+    same model the reported numbers come from: the balancing weight depends on the
+    training labels and is easy to leave off, and NaN belongs in the matrix untouched
+    rather than median-filled across the whole table.
+    """
+    X, _ = prepare_matrix(df, FEATURES, model="xgboost")
     y = df["label"].astype(int).values
     pdb = df["pdb_id"].values
     oof = np.zeros((len(seeds), len(df)))
@@ -105,16 +122,10 @@ def xgb_oof(df: pd.DataFrame, split: dict, seeds: list[int]):
         te_mask = np.isin(pdb, fold["test_complexes"])
         tr_mask = np.isin(pdb, fold["train_complexes"])
         for si, seed in enumerate(seeds):
-            p = max(1, int(y[tr_mask].sum()))
-            m = XGBClassifier(
-                n_estimators=300, max_depth=4, learning_rate=0.05, subsample=0.8,
-                colsample_bytree=0.8, reg_alpha=50,
-                scale_pos_weight=(tr_mask.sum() - y[tr_mask].sum()) / p,
-                eval_metric="aucpr", random_state=seed, n_jobs=-1,
-            ).fit(X[tr_mask], y[tr_mask])
+            m = make_xgb(y[tr_mask], seed).fit(X[tr_mask], y[tr_mask])
             oof[si, te_mask] = m.predict_proba(X[te_mask])[:, 1]
     mean = oof.mean(0)
-    return {(r.pdb_id, r.chain, int(r.resseq)): float(mean[i])
+    return {res_key(r.pdb_id, r.chain, r.resseq, r.icode): float(mean[i])
             for i, r in enumerate(df.itertuples())}
 
 
@@ -123,7 +134,7 @@ def main() -> int:
     ap.add_argument("--graphs", type=Path, default=REPO_ROOT / "data" / "graphs_alanine.pt")
     ap.add_argument("--split", type=Path, default=REPO_ROOT / "data" / "split_alanine.json")
     ap.add_argument("--csv", type=Path,
-                    default=REPO_ROOT / "data" / "skempi_features_full.csv")
+                    default=REPO_ROOT / "data" / "skempi_features.csv")
     ap.add_argument("--seeds", type=int, default=1)
     ap.add_argument("--epochs", type=int, default=27)
     args = ap.parse_args()
@@ -139,7 +150,7 @@ def main() -> int:
     df = collapse(df, "alanine", 2.0)
 
     print("=" * 78)
-    print(f"  ENSEMBLE: GNN (Wide&Deep) + XGBoost (V1+L1)  |  {args.seeds} seed(s)")
+    print(f"  ENSEMBLE: GNN (Wide&Deep) + XGBoost  |  {args.seeds} seed(s)")
     print("=" * 78)
     print(f"  folds from {args.split.name} | {len(split['cv_folds'])} folds")
 
@@ -153,7 +164,8 @@ def main() -> int:
 
     # join: only residues BOTH models scored, so the comparison is row-identical
     keys = sorted(set(g_oof) & set(x_oof))
-    lab = {(r.pdb_id, r.chain, int(r.resseq)): int(r.label) for r in df.itertuples()}
+    lab = {res_key(r.pdb_id, r.chain, r.resseq, r.icode): int(r.label)
+           for r in df.itertuples()}
     y = np.array([lab[k] for k in keys])
     pg = np.array([g_oof[k] for k in keys])
     px = np.array([x_oof[k] for k in keys])
@@ -170,7 +182,7 @@ def main() -> int:
     print("\n" + "-" * 78)
     print(f"    {'model':<26}{'PR-AUC':>9}{'ROC-AUC':>10}")
     print("-" * 78)
-    rows = [("XGBoost (V1+L1)", px), ("GNN (Wide&Deep)", pg)]
+    rows = [("XGBoost", px), ("GNN (Wide&Deep)", pg)]
     for w in (0.5, 0.7, 0.3):
         rows.append((f"ensemble {w:.1f}*xgb + {1-w:.1f}*gnn", w * px + (1 - w) * pg))
     # rank-average is scale-free, which matters when two models are calibrated differently
